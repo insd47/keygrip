@@ -1,7 +1,6 @@
 use super::{Index, Key};
 use crate::entity::utils::fields;
 use proc_macro2::Ident;
-use syn::parse::Parse;
 use syn::spanned::Spanned;
 use syn::{DeriveInput, Error, LitStr};
 

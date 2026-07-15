@@ -6,8 +6,16 @@ use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+/// A typed grip on one DynamoDB table, providing its common key-based
+/// operations.
+///
+/// The entity type declares the key schema (via [`Entity`], usually derived);
+/// the handle owns a client and a table name and turns that schema into
+/// requests. Entity-specific operations — conditional updates, transactions —
+/// are meant to live outside this crate; see the crate documentation for the
+/// extension pattern built on [`client`](Handle::client) and
+/// [`name`](Handle::name).
 #[derive(Debug, Clone)]
-/// 한 DynamoDB 엔티티의 공통 키 기반 연산을 제공한다.
 pub struct Handle<E: Entity> {
     client: Client,
     name: String,
@@ -15,6 +23,7 @@ pub struct Handle<E: Entity> {
 }
 
 impl<E: Entity> Handle<E> {
+    /// Creates a handle for `name` using the given client.
     pub fn new(client: Client, name: impl Into<String>) -> Self {
         Self {
             client,
@@ -23,17 +32,23 @@ impl<E: Entity> Handle<E> {
         }
     }
 
-    /// 이 handle이 사용하는 DynamoDB client를 반환한다.
+    /// Returns the DynamoDB client this handle uses.
+    ///
+    /// Exposed for extension code that issues its own SDK calls against the
+    /// same table (conditional updates, transactions).
     pub fn client(&self) -> &Client {
         &self.client
     }
 
-    /// 이 handle이 사용하는 DynamoDB table 이름을 반환한다.
+    /// Returns the DynamoDB table name this handle targets.
+    ///
+    /// Exposed for extension code, alongside [`client`](Handle::client).
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// 키에 해당하는 엔티티를 일관 읽기로 조회한다.
+    /// Fetches the entity at the given key with a consistent read, or `None`
+    /// if it does not exist.
     pub async fn find<'a>(&self, primary: impl Into<E::Key<'a>>) -> Result<Option<E>>
     where
         E: 'a,
@@ -51,7 +66,8 @@ impl<E: Entity> Handle<E> {
         item::option(response.item)
     }
 
-    /// 키에 해당하는 엔티티를 조회하고 없으면 NotFound를 반환한다.
+    /// Fetches the entity at the given key, or fails with
+    /// [`Error::NotFound`].
     pub async fn get<'a>(&self, key: impl Into<E::Key<'a>>) -> Result<E>
     where
         E: 'a,
@@ -61,7 +77,8 @@ impl<E: Entity> Handle<E> {
             .ok_or_else(|| Error::NotFound(format!("{} not found.", E::NAME)))
     }
 
-    /// 같은 기본 키가 없을 때만 엔티티를 생성한다.
+    /// Writes the entity only if no item with the same primary key exists;
+    /// fails with [`Error::Conflict`] otherwise.
     pub async fn create(&self, entity: &E) -> Result<()> {
         let key = document_key(E::parts(entity.primary()));
         let mut names = key.keys().collect::<Vec<_>>();
@@ -86,7 +103,7 @@ impl<E: Entity> Handle<E> {
         Ok(())
     }
 
-    /// 엔티티를 현재 값으로 저장한다.
+    /// Writes the entity unconditionally, replacing any existing item.
     pub async fn put(&self, entity: &E) -> Result<()> {
         let mut document = item::to(entity)?;
         document.extend(document_key(E::parts(entity.primary())));
@@ -102,7 +119,7 @@ impl<E: Entity> Handle<E> {
         Ok(())
     }
 
-    /// 키에 해당하는 엔티티를 삭제한다.
+    /// Deletes the item at the given key; succeeds even if it did not exist.
     pub async fn delete<'a>(&self, primary: impl Into<E::Key<'a>>) -> Result<()>
     where
         E: 'a,
@@ -118,7 +135,9 @@ impl<E: Entity> Handle<E> {
         Ok(())
     }
 
-    /// 테이블 전체를 페이지 끝까지 읽는다.
+    /// Reads the whole table, following pagination to the end.
+    ///
+    /// Intended for small tables; there is deliberately no paginated scan.
     pub async fn scan(&self) -> Result<Vec<E>> {
         let mut entities = Vec::new();
         let mut cursor = None;
@@ -144,7 +163,11 @@ impl<E: Entity> Handle<E> {
         Ok(entities)
     }
 
-    /// 최대 100개씩 나눠 여러 기본 키를 일관 읽기 한다.
+    /// Reads many primary keys with consistent reads, chunked by DynamoDB's
+    /// batch limit of 100.
+    ///
+    /// Result order is not guaranteed to match the input; fails if DynamoDB
+    /// leaves keys unprocessed.
     pub async fn batch<'a, I, K>(&self, keys: I) -> Result<Vec<E>>
     where
         E: 'a,
@@ -191,7 +214,7 @@ impl<E: Entity> Handle<E> {
         Ok(entities)
     }
 
-    /// 파티션 키에 제한된 쿼리를 시작한다.
+    /// Starts a [`Query`] scoped to the given partition key value.
     pub fn query<P: KeyPart + ?Sized>(&self, partition: &P) -> Query<'_, E> {
         query::new(self, partition.part())
     }

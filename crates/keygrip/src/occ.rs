@@ -1,10 +1,21 @@
+//! Optimistic-concurrency retry loop, for extension code implementing
+//! read-modify-write invariants with version-conditioned updates.
+
 use std::future::Future;
 
+/// Outcome of one optimistic attempt.
 pub enum Attempt<T> {
+    /// The conditional write went through; stop with this value.
     Done(T),
+    /// The version condition was rejected; re-read and try again.
     Retry,
 }
 
+/// Runs `attempt` until it completes, retrying rejected attempts at most
+/// `attempts` times before failing with `conflict`.
+///
+/// Real errors returned by `attempt` propagate immediately — only
+/// [`Attempt::Retry`] consumes an attempt.
 pub async fn retry<T, E, F, Fut>(attempts: usize, conflict: E, mut attempt: F) -> Result<T, E>
 where
     F: FnMut() -> Fut,

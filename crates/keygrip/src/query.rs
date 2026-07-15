@@ -2,6 +2,12 @@ use crate::types::Sort;
 use crate::{attr, item, request, Cursor, Entity, Error, Handle, Index, KeyPart, Page, Result};
 use std::collections::HashMap;
 
+/// A typed transliteration of the DynamoDB Query API.
+///
+/// Built by [`Handle::query`]; constrained to what a single Query call can
+/// express natively — a partition equality, at most one sort-key condition,
+/// a direction, and pagination. Attribute names come from the entity's key
+/// schema, never from strings at the call site.
 pub struct Query<'h, E: Entity> {
     handle: &'h Handle<E>,
     partition: String,
@@ -21,30 +27,40 @@ pub fn new<E: Entity>(handle: &Handle<E>, partition: String) -> Query<'_, E> {
 }
 
 impl<E: Entity> Query<'_, E> {
+    /// Targets a global secondary index declared on the entity
+    /// (`#[entity(index(…))]`) instead of the primary key.
     pub fn index(mut self, index: &'static Index) -> Self {
         self.index = Some(index);
         self
     }
 
+    /// Constrains the sort key with `begins_with(prefix)`.
     pub fn prefix(mut self, prefix: impl Into<String>) -> Self {
         self.sort = Some(Sort::Prefix(prefix.into()));
         self
     }
 
+    /// Constrains the sort key to an exact value.
     pub fn eq<P: KeyPart + ?Sized>(mut self, value: &P) -> Self {
         self.sort = Some(Sort::Equal(value.part()));
         self
     }
 
+    /// Returns items in descending sort-key order (newest first when the
+    /// sort key is chronological).
     pub fn newest(mut self) -> Self {
         self.newest = true;
         self
     }
 
+    /// Runs the query and returns one page of at most `limit` items.
+    ///
+    /// Pass the previous page's [`cursor`](Page::cursor) to resume.
     pub async fn page(self, cursor: Option<Cursor>, limit: i32) -> Result<Page<E>> {
         self.send(cursor, Some(limit)).await
     }
 
+    /// Runs the query and drains every page into one vector.
     pub async fn all(self) -> Result<Vec<E>> {
         let mut entities = Vec::new();
         let mut cursor = None;

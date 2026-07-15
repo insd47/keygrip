@@ -1,29 +1,52 @@
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+/// A storage model with a declared key schema.
+///
+/// Usually implemented with `#[derive(Entity)]` and one `#[entity(…)]`
+/// attribute; manual implementations remain valid for tables that break the
+/// derive's conventions.
 pub trait Entity: Serialize + DeserializeOwned {
+    /// Display name used in error messages (derive default: the struct name
+    /// with a trailing `Table` stripped).
     const NAME: &'static str;
+    /// Attribute name of the partition key.
     const PARTITION: &'static str;
+    /// Attribute name of the sort key, if the table has one.
     const SORT: Option<&'static str> = None;
+    /// Borrowed key-part bundle accepted by lookups (derive: [`Key<N>`] where
+    /// `N` counts every `pk`/`sk` field).
+    ///
+    /// [`Key<N>`]: Key
     type Key<'a>
     where
         Self: 'a;
 
+    /// Resolves key parts into named partition/sort values, applying any
+    /// composite encoding.
     fn parts<'a>(key: impl Into<Self::Key<'a>>) -> Parts
     where
         Self: 'a;
+    /// Returns this instance's own primary key parts.
     fn primary(&self) -> Self::Key<'_>;
 }
 
+/// An ordered bundle of `N` key-part strings.
+///
+/// Produced from single values and tuples of [`KeyPart`] references (up to
+/// four), so call sites pass `"id"` or `(&user, &kind, &id)` rather than
+/// constructing keys by hand.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Key<const N: usize>([String; N]);
 
 impl<const N: usize> Key<N> {
+    /// Unwraps the parts in declaration order.
     pub fn into_values(self) -> [String; N] {
         self.0
     }
 }
 
+/// A resolved primary key: attribute names paired with encoded values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parts {
     pub partition: (&'static str, String),
@@ -31,6 +54,7 @@ pub struct Parts {
 }
 
 impl Parts {
+    /// A partition-only key.
     pub fn one(partition: &'static str, value: impl Into<String>) -> Self {
         Self {
             partition: (partition, value.into()),
@@ -38,6 +62,7 @@ impl Parts {
         }
     }
 
+    /// A partition + sort key.
     pub fn two(
         partition: &'static str,
         partition_value: impl Into<String>,
@@ -51,6 +76,10 @@ impl Parts {
     }
 }
 
+/// A global secondary index's name and key attribute names.
+///
+/// Declared with `#[entity(index(…))]`, which emits one constant per index;
+/// pass it to [`Query::index`](crate::Query::index).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Index {
     pub name: &'static str,
@@ -58,6 +87,21 @@ pub struct Index {
     pub sort: Option<&'static str>,
 }
 
+/// A value that can serve as one part of a key.
+///
+/// `str`/`String` pass through unchanged. Implement this for enums and other
+/// encoded types to define how they appear inside keys — the encoding stays
+/// ordinary, greppable code:
+///
+/// ```
+/// # use keygrip::KeyPart;
+/// # enum Kind { Submit, Test }
+/// impl KeyPart for Kind {
+///     fn part(&self) -> String {
+///         match self { Self::Submit => "S", Self::Test => "T" }.into()
+///     }
+/// }
+/// ```
 pub trait KeyPart {
     fn part(&self) -> String;
 }

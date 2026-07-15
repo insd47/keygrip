@@ -5,7 +5,7 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Insung Hwang"]
+authors = ["insd47"]
 license = "MIT"
 repository = "https://github.com/insd47/keygrip"
 

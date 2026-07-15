@@ -2,9 +2,9 @@ use proc_macro2::TokenStream;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Error, Fields};
 
+mod attributes;
 mod expand;
 mod field;
-mod attributes;
 mod utils;
 
 pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
