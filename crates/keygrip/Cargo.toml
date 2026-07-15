@@ -1,0 +1,23 @@
+[package]
+name = "keygrip"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["dynamodb"]
+dynamodb = [
+    "dep:aws-sdk-dynamodb",
+    "dep:serde_dynamo",
+    "dep:thiserror",
+]
+
+[dependencies]
+aws-sdk-dynamodb = { workspace = true, optional = true }
+keygrip-derive = { version = "=0.1.0", path = "../keygrip-derive" }
+serde.workspace = true
+serde_dynamo = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio.workspace = true
