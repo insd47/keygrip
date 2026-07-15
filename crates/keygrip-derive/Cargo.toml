@@ -1,8 +1,12 @@
 [package]
 name = "keygrip-derive"
+description = "Derive macro for keygrip entities"
+readme = "../../README.md"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [lib]
 proc-macro = true

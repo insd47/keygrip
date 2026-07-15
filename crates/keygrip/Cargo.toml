@@ -1,8 +1,14 @@
 [package]
 name = "keygrip"
+description = "Typed, key-centric DynamoDB access: derive key schemas on your models and work through a small table handle"
+readme = "../../README.md"
+keywords = ["dynamodb", "aws", "database", "serde", "derive"]
+categories = ["database"]
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [features]
 default = ["dynamodb"]
@@ -21,3 +27,6 @@ thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

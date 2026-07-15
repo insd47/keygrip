@@ -1,0 +1,52 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Rust 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 버전 설정
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          sed -i '' -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+          sed -i '' -E "s/version = \"=[^\"]+\"/version = \"=$VERSION\"/" crates/keygrip/Cargo.toml
+
+      - name: 검사
+        run: cargo test --workspace --all-features
+
+      - name: crates.io 로그인
+        id: cargo-auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: keygrip-derive 배포
+        run: cargo publish -p keygrip-derive --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
+
+      - name: keygrip 배포
+        run: |
+          for attempt in {1..12}; do
+            if cargo publish -p keygrip --allow-dirty; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 12 ]; then
+              exit 1
+            fi
+
+            sleep 10
+          done
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.cargo-auth.outputs.token }}
