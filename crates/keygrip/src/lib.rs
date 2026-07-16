@@ -1,15 +1,15 @@
 //! Typed, key-centric DynamoDB access for Rust.
 //!
 //! `keygrip` derives a table's key schema from its storage model and gives you
-//! a small typed [`Handle`] for the operations DynamoDB is actually good at:
+//! a live typed [`Entity`] for the operations DynamoDB is actually good at:
 //! key-based CRUD, batch reads, scans, and partition queries.
 //!
 //! ```no_run
 //! use aws_sdk_dynamodb::Client;
-//! use keygrip::{Entity, Handle, Result};
+//! use keygrip::{Entity, Result, Schema};
 //! use serde::{Deserialize, Serialize};
 //!
-//! #[derive(Debug, Serialize, Deserialize, Entity)]
+//! #[derive(Debug, Serialize, Deserialize, Schema)]
 //! #[entity(pk(contest_id), sk(id))]
 //! #[serde(rename_all = "camelCase")]
 //! struct UserTable {
@@ -19,7 +19,7 @@
 //! }
 //!
 //! async fn users(client: Client) -> Result<Vec<UserTable>> {
-//!     let users = Handle::<UserTable>::new(client, "Users");
+//!     let users = Entity::<UserTable>::new(client, "Users");
 //!
 //!     users.query("contest").newest().all().await
 //! }
@@ -27,9 +27,9 @@
 //!
 //! # Feature flags
 //!
-//! - `dynamodb` *(default)* — the AWS SDK-backed [`Handle`], [`Query`], and the
+//! - `dynamodb` *(default)* — the AWS SDK-backed [`Entity`], [`Query`], and the
 //!   extension toolkit ([`attr`], [`item`], [`occ`], [`request`]).
-//! - Without default features, only the entity vocabulary ([`Entity`],
+//! - Without default features, only the schema vocabulary ([`Schema`],
 //!   [`Parts`], [`Index`], [`KeyPart`]) and the derive macro remain — for
 //!   model-only crates that must not compile the AWS SDK.
 
@@ -37,11 +37,10 @@ extern crate self as keygrip;
 
 #[cfg(feature = "dynamodb")]
 pub mod attr;
+#[cfg(feature = "dynamodb")]
 mod entity;
 #[cfg(feature = "dynamodb")]
 mod error;
-#[cfg(feature = "dynamodb")]
-mod handle;
 #[cfg(feature = "dynamodb")]
 pub mod item;
 #[cfg(feature = "dynamodb")]
@@ -52,16 +51,17 @@ pub mod occ;
 mod query;
 #[cfg(feature = "dynamodb")]
 pub mod request;
+mod schema;
 #[cfg(feature = "dynamodb")]
 mod types;
 
-pub use entity::{Entity, Index, Key, KeyPart, Parts};
+#[cfg(feature = "dynamodb")]
+pub use entity::Entity;
 #[cfg(feature = "dynamodb")]
 pub use error::{Error, Result};
-#[cfg(feature = "dynamodb")]
-pub use handle::Handle;
-pub use keygrip_derive::Entity;
+pub use keygrip_derive::Schema;
 #[cfg(feature = "dynamodb")]
 pub use query::Query;
+pub use schema::{Index, Key, KeyPart, Parts, Schema};
 #[cfg(feature = "dynamodb")]
 pub use types::{Cursor, Page};

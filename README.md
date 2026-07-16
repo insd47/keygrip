@@ -2,17 +2,17 @@
 
 Typed, key-centric DynamoDB access for Rust.
 
-`keygrip` derives a table's key schema from its storage model and gives you a small typed handle for the operations
+`keygrip` derives a table's key schema from its storage model and gives you a live typed entity for the operations
 DynamoDB is actually good at: key-based CRUD, batch reads, scans, and partition queries. Everything else — filters,
 joins, cross-entity composition — is deliberately out of scope: access patterns belong to your code, key layouts belong
 to your models.
 
 ```rust
 use aws_sdk_dynamodb::Client;
-use keygrip::{Entity, Handle, Result};
+use keygrip::{Entity, Result, Schema};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Entity)]
+#[derive(Debug, Serialize, Deserialize, Schema)]
 #[entity(pk(contest_id), sk(id))]
 #[serde(rename_all = "camelCase")]
 struct UserTable {
@@ -22,18 +22,18 @@ struct UserTable {
 }
 
 async fn users(client: Client) -> Result<Vec<UserTable>> {
-    let users = Handle::<UserTable>::new(client, "Users");
+    let users = Entity::<UserTable>::new(client, "Users");
 
     users.query("contest").newest().all().await
 }
 ```
 
-## Declaring entities
+## Declaring schemas
 
 A table declaration is a serde struct plus one `#[entity(…)]` attribute:
 
 ```rust
-#[derive(Serialize, Deserialize, Entity)]
+#[derive(Serialize, Deserialize, Schema)]
 #[entity(pk(user_id), sk(problem_id, kind, id),
     index(name = "byId", pk(id), sk(user_id)))]
 struct ExecutionTable {
@@ -67,14 +67,14 @@ struct ExecutionTable {
 - `name = "…"` overrides the display name used in error messages (default:
   the struct name minus a trailing `Table`).
 
-Manual `impl Entity` remains valid for tables that break these conventions.
+Manual `impl Schema` remains valid for tables that break these conventions.
 
-## Working with a handle
+## Working with an entity
 
-`Handle<E>` pairs a client with a table name:
+`Entity<E>` pairs a client with a table name:
 
 ```rust
-let executions = Handle::<ExecutionTable>::new(client, "Executions");
+let executions = Entity::<ExecutionTable>::new(client, "Executions");
 
 executions.get(( & user, & problem, & kind, & id)).await?;   // NotFound if absent
 executions.find(( & user, & problem, & kind, & id)).await?;  // Option<E>
@@ -113,18 +113,18 @@ executions
 Domain operations — conditional updates, optimistic locking, transactions — are where your invariants live, so keygrip
 does not try to generalize them. Instead it hands you the pieces:
 
-- `handle.client()` and `handle.name()` for issuing SDK calls against the same table;
+- `entity.client()` and `entity.name()` for issuing SDK calls against the same table;
 - `attr` (attribute-value constructors), `item` (serde ↔ item conversion),
   `request` (SDK error mapping), and `occ` (optimistic retry loop).
 
-Since Rust does not allow inherent impls on foreign types, wrap the handle in a thin newtype in your crate and attach
+Since Rust does not allow inherent impls on foreign types, wrap the entity in a thin newtype in your crate and attach
 domain methods there:
 
 ```rust
-pub struct Users(keygrip::Handle<UserTable>);
+pub struct Users(keygrip::Entity<UserTable>);
 
 impl std::ops::Deref for Users {
-    type Target = keygrip::Handle<UserTable>;
+    type Target = keygrip::Entity<UserTable>;
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
@@ -153,8 +153,8 @@ Generic operations pass through `Deref`; your invariants stay yours.
 
 ## Feature flags
 
-- `dynamodb` *(default)* — the AWS SDK-backed handle, query, and extension toolkit.
-- With `default-features = false`, only the entity vocabulary and the derive macro remain. Use this from model-only
+- `dynamodb` *(default)* — the AWS SDK-backed entity, query, and extension toolkit.
+- With `default-features = false`, only the schema vocabulary and the derive macro remain. Use this from model-only
   crates (DTO layers, Lambdas that must not compile the AWS SDK) that still need to name your table types.
 
 ## Versioning

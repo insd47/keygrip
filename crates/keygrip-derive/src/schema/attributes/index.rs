@@ -1,5 +1,5 @@
 use super::Key;
-use crate::entity::utils;
+use crate::schema::utils;
 use syn::LitStr;
 
 pub struct Index {

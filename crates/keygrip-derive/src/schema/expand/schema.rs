@@ -1,12 +1,12 @@
-use crate::entity::attributes::Entity;
-use crate::entity::expand::{index, key};
-use crate::entity::utils;
+use crate::schema::attributes::Schema;
+use crate::schema::expand::{index, key};
+use crate::schema::utils;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-pub fn entity(name: &Ident, attr: &Entity) -> TokenStream {
+pub fn schema(name: &Ident, attr: &Schema) -> TokenStream {
     let keygrip = quote!(::keygrip);
-    let entity_name = attr.name(name);
+    let schema_name = attr.name(name);
     let primary = key::primary(&attr.key, &keygrip);
     let partition = &primary.partition;
     let sort = utils::option(primary.sort.as_deref());
@@ -24,8 +24,8 @@ pub fn entity(name: &Ident, attr: &Entity) -> TokenStream {
     let prefix = key::prefix(&attr.key.sort, &keygrip);
 
     quote! {
-        impl #keygrip::Entity for #name {
-            const NAME: &'static str = #entity_name;
+        impl #keygrip::Schema for #name {
+            const NAME: &'static str = #schema_name;
             const PARTITION: &'static str = #partition;
             const SORT: ::core::option::Option<&'static str> = #sort;
             type Key<'a> = #keygrip::Key<#key_count>;

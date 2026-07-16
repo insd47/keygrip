@@ -1,6 +1,6 @@
 [package]
 name = "keygrip"
-description = "Typed, key-centric DynamoDB access: derive key schemas on your models and work through a small table handle"
+description = "Typed, key-centric DynamoDB access: derive schemas on models and work through live entities"
 readme = "../../README.md"
 keywords = ["dynamodb", "aws", "database", "serde", "derive"]
 categories = ["database"]
@@ -20,7 +20,7 @@ dynamodb = [
 
 [dependencies]
 aws-sdk-dynamodb = { workspace = true, optional = true }
-keygrip-derive = { version = "=0.1.0", path = "../keygrip-derive" }
+keygrip-derive = { version = "=0.2.0", path = "../keygrip-derive" }
 serde.workspace = true
 serde_dynamo = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }

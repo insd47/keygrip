@@ -1,5 +1,5 @@
 use super::super::attributes::Index;
-use crate::entity::utils;
+use crate::schema::utils;
 use heck::ToShoutySnakeCase;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};

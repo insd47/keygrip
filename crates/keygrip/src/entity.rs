@@ -1,181 +1,220 @@
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use super::query;
+use crate::key::document_key;
+use crate::{item, request, Error, KeyPart, Query, Result, Schema};
+use aws_sdk_dynamodb::types::KeysAndAttributes;
+use aws_sdk_dynamodb::Client;
+use std::collections::HashMap;
+use std::marker::PhantomData;
 
-/// A storage model with a declared key schema.
+/// A typed grip on one DynamoDB table, providing its common key-based
+/// operations.
 ///
-/// Usually implemented with `#[derive(Entity)]` and one `#[entity(…)]`
-/// attribute; manual implementations remain valid for tables that break the
-/// derive's conventions.
-pub trait Entity: Serialize + DeserializeOwned {
-    /// Display name used in error messages (derive default: the struct name
-    /// with a trailing `Table` stripped).
-    const NAME: &'static str;
-    /// Attribute name of the partition key.
-    const PARTITION: &'static str;
-    /// Attribute name of the sort key, if the table has one.
-    const SORT: Option<&'static str> = None;
-    /// Borrowed key-part bundle accepted by lookups (derive: [`Key<N>`] where
-    /// `N` counts every `pk`/`sk` field).
+/// The model declares its key [`Schema`]; the entity owns a client and table
+/// name and turns that schema into requests. Domain-specific operations —
+/// conditional updates, transactions — are meant to live outside this crate;
+/// see the crate documentation for the extension pattern built on
+/// [`client`](Entity::client) and [`name`](Entity::name).
+#[derive(Debug, Clone)]
+pub struct Entity<E: Schema> {
+    client: Client,
+    name: String,
+    marker: PhantomData<E>,
+}
+
+impl<E: Schema> Entity<E> {
+    /// Creates a live entity for `name` using the given client.
+    pub fn new(client: Client, name: impl Into<String>) -> Self {
+        Self {
+            client,
+            name: name.into(),
+            marker: PhantomData,
+        }
+    }
+
+    /// Returns the DynamoDB client this entity uses.
     ///
-    /// [`Key<N>`]: Key
-    type Key<'a>
+    /// Exposed for extension code that issues its own SDK calls against the
+    /// same table (conditional updates, transactions).
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
+    /// Returns the DynamoDB table name this entity targets.
+    ///
+    /// Exposed for extension code, alongside [`client`](Entity::client).
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Fetches the entity at the given key with a consistent read, or `None`
+    /// if it does not exist.
+    pub async fn find<'a>(&self, primary: impl Into<E::Key<'a>>) -> Result<Option<E>>
     where
-        Self: 'a;
+        E: 'a,
+    {
+        let response = self
+            .client
+            .get_item()
+            .table_name(&self.name)
+            .set_key(Some(document_key(E::parts(primary))))
+            .consistent_read(true)
+            .send()
+            .await
+            .map_err(request::unavailable)?;
 
-    /// Resolves key parts into named partition/sort values, applying any
-    /// composite encoding.
-    fn parts<'a>(key: impl Into<Self::Key<'a>>) -> Parts
+        item::option(response.item)
+    }
+
+    /// Fetches the entity at the given key, or fails with
+    /// [`Error::NotFound`].
+    pub async fn get<'a>(&self, key: impl Into<E::Key<'a>>) -> Result<E>
     where
-        Self: 'a;
-    /// Returns this instance's own primary key parts.
-    fn primary(&self) -> Self::Key<'_>;
-}
-
-/// An ordered bundle of `N` key-part strings.
-///
-/// Produced from single values and tuples of [`KeyPart`] references (up to
-/// four), so call sites pass `"id"` or `(&user, &kind, &id)` rather than
-/// constructing keys by hand.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Key<const N: usize>([String; N]);
-
-impl<const N: usize> Key<N> {
-    /// Unwraps the parts in declaration order.
-    pub fn into_values(self) -> [String; N] {
-        self.0
+        E: 'a,
+    {
+        self.find(key)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("{} not found.", E::NAME)))
     }
-}
 
-/// A resolved primary key: attribute names paired with encoded values.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Parts {
-    pub partition: (&'static str, String),
-    pub sort: Option<(&'static str, String)>,
-}
+    /// Writes the entity only if no item with the same primary key exists;
+    /// fails with [`Error::Conflict`] otherwise.
+    pub async fn create(&self, entity: &E) -> Result<()> {
+        let key = document_key(E::parts(entity.primary()));
+        let mut names = key.keys().collect::<Vec<_>>();
+        names.sort_unstable();
+        let condition = names
+            .into_iter()
+            .map(|name| format!("attribute_not_exists({name})"))
+            .collect::<Vec<_>>()
+            .join(" AND ");
+        let mut document = item::to(entity)?;
+        document.extend(key);
 
-impl Parts {
-    /// A partition-only key.
-    pub fn one(partition: &'static str, value: impl Into<String>) -> Self {
-        Self {
-            partition: (partition, value.into()),
-            sort: None,
+        self.client
+            .put_item()
+            .table_name(&self.name)
+            .set_item(Some(document))
+            .condition_expression(condition)
+            .send()
+            .await
+            .map_err(|error| request::conflict(error, "The item already exists."))?;
+
+        Ok(())
+    }
+
+    /// Writes the entity unconditionally, replacing any existing item.
+    pub async fn put(&self, entity: &E) -> Result<()> {
+        let mut document = item::to(entity)?;
+        document.extend(document_key(E::parts(entity.primary())));
+
+        self.client
+            .put_item()
+            .table_name(&self.name)
+            .set_item(Some(document))
+            .send()
+            .await
+            .map_err(request::unavailable)?;
+
+        Ok(())
+    }
+
+    /// Deletes the item at the given key; succeeds even if it did not exist.
+    pub async fn delete<'a>(&self, primary: impl Into<E::Key<'a>>) -> Result<()>
+    where
+        E: 'a,
+    {
+        self.client
+            .delete_item()
+            .table_name(&self.name)
+            .set_key(Some(document_key(E::parts(primary))))
+            .send()
+            .await
+            .map_err(request::unavailable)?;
+
+        Ok(())
+    }
+
+    /// Reads the whole table, following pagination to the end.
+    ///
+    /// Intended for small tables; there is deliberately no paginated scan.
+    pub async fn scan(&self) -> Result<Vec<E>> {
+        let mut entities = Vec::new();
+        let mut cursor = None;
+
+        loop {
+            let response = self
+                .client
+                .scan()
+                .table_name(&self.name)
+                .set_exclusive_start_key(cursor)
+                .send()
+                .await
+                .map_err(request::unavailable)?;
+
+            entities.extend(item::page(response.items)?);
+            cursor = response.last_evaluated_key;
+
+            if cursor.as_ref().is_none_or(HashMap::is_empty) {
+                break;
+            }
         }
+
+        Ok(entities)
     }
 
-    /// A partition + sort key.
-    pub fn two(
-        partition: &'static str,
-        partition_value: impl Into<String>,
-        sort: &'static str,
-        sort_value: impl Into<String>,
-    ) -> Self {
-        Self {
-            partition: (partition, partition_value.into()),
-            sort: Some((sort, sort_value.into())),
+    /// Reads many primary keys with consistent reads, chunked by DynamoDB's
+    /// batch limit of 100.
+    ///
+    /// Result order is not guaranteed to match the input; fails if DynamoDB
+    /// leaves keys unprocessed.
+    pub async fn batch<'a, I, K>(&self, keys: I) -> Result<Vec<E>>
+    where
+        E: 'a,
+        I: IntoIterator<Item = K>,
+        K: Into<E::Key<'a>>,
+    {
+        let keys = keys
+            .into_iter()
+            .map(|primary| document_key(E::parts(primary)))
+            .collect::<Vec<_>>();
+        let mut entities = Vec::new();
+
+        for keys in keys.chunks(100) {
+            let request_items = KeysAndAttributes::builder()
+                .set_keys(Some(keys.to_vec()))
+                .consistent_read(true)
+                .build()
+                .map_err(request::unavailable)?;
+            let response = self
+                .client
+                .batch_get_item()
+                .request_items(&self.name, request_items)
+                .send()
+                .await
+                .map_err(request::unavailable)?;
+            let incomplete = response
+                .unprocessed_keys
+                .as_ref()
+                .is_some_and(|tables| tables.values().any(|table| !table.keys().is_empty()));
+
+            if incomplete {
+                return Err(Error::Unavailable(format!(
+                    "{} batch read was not completed.",
+                    E::NAME
+                )));
+            }
+
+            let documents = response
+                .responses
+                .and_then(|mut tables| tables.remove(&self.name));
+            entities.extend(item::page(documents)?);
         }
-    }
-}
 
-/// A global secondary index's name and key attribute names.
-///
-/// Declared with `#[entity(index(…))]`, which emits one constant per index;
-/// pass it to [`Query::index`](crate::Query::index).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Index {
-    pub name: &'static str,
-    pub partition: &'static str,
-    pub sort: Option<&'static str>,
-}
-
-/// A value that can serve as one part of a key.
-///
-/// `str`/`String` pass through unchanged. Implement this for enums and other
-/// encoded types to define how they appear inside keys — the encoding stays
-/// ordinary, greppable code:
-///
-/// ```
-/// # use keygrip::KeyPart;
-/// # enum Kind { Submit, Test }
-/// impl KeyPart for Kind {
-///     fn part(&self) -> String {
-///         match self { Self::Submit => "S", Self::Test => "T" }.into()
-///     }
-/// }
-/// ```
-pub trait KeyPart {
-    fn part(&self) -> String;
-}
-
-impl KeyPart for str {
-    fn part(&self) -> String {
-        self.into()
-    }
-}
-
-impl KeyPart for String {
-    fn part(&self) -> String {
-        self.clone()
-    }
-}
-
-impl<P: KeyPart + ?Sized> From<&P> for Key<1> {
-    fn from(part: &P) -> Self {
-        Self([part.part()])
-    }
-}
-
-impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized> From<(&A, &B)> for Key<2> {
-    fn from((a, b): (&A, &B)) -> Self {
-        Self([a.part(), b.part()])
-    }
-}
-
-impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized, C: KeyPart + ?Sized> From<(&A, &B, &C)> for Key<3> {
-    fn from((a, b, c): (&A, &B, &C)) -> Self {
-        Self([a.part(), b.part(), c.part()])
-    }
-}
-
-impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized, C: KeyPart + ?Sized, D: KeyPart + ?Sized>
-    From<(&A, &B, &C, &D)> for Key<4>
-{
-    fn from((a, b, c, d): (&A, &B, &C, &D)) -> Self {
-        Self([a.part(), b.part(), c.part(), d.part()])
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Entity, Parts};
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize, crate::Entity)]
-    #[entity(pk(id))]
-    struct UserTable {
-        id: String,
+        Ok(entities)
     }
 
-    #[derive(Debug, Serialize, Deserialize, crate::Entity)]
-    #[entity(name = "Assignment", pk(problem, scope), sk(kind, id))]
-    struct Record {
-        problem: String,
-        scope: String,
-        kind: String,
-        id: String,
-    }
-
-    #[test]
-    fn derives_entity_names_and_single_attribute_keys() {
-        assert_eq!(UserTable::NAME, "User");
-        assert_eq!(UserTable::parts("user"), Parts::one("id", "user"));
-    }
-
-    #[test]
-    fn preserves_composite_key_encodings_and_name_overrides() {
-        assert_eq!(Record::NAME, "Assignment");
-        assert_eq!(
-            Record::parts(("problem", "S", "submit", "id")),
-            Parts::two("pk", "problem#S", "sk", "submit#id")
-        );
+    /// Starts a [`Query`] scoped to the given partition key value.
+    pub fn query<P: KeyPart + ?Sized>(&self, partition: &P) -> Query<'_, E> {
+        query::new(self, partition.part())
     }
 }

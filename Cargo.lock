@@ -876,7 +876,7 @@ dependencies = [
 
 [[package]]
 name = "keygrip"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aws-sdk-dynamodb",
  "keygrip-derive",
@@ -888,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "keygrip-derive"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "heck",
  "proc-macro2",

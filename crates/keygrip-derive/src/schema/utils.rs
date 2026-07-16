@@ -1,4 +1,4 @@
-use crate::entity::field::Field;
+use crate::schema::field::Field;
 use heck::ToLowerCamelCase;
 use proc_macro2::TokenStream;
 use quote::quote;

@@ -1,6 +1,6 @@
 [package]
 name = "keygrip-derive"
-description = "Derive macro for keygrip entities"
+description = "Derive macro for keygrip schemas"
 readme = "../../README.md"
 version.workspace = true
 edition.workspace = true

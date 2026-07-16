@@ -1,5 +1,5 @@
-use crate::entity::field::Field;
-use crate::entity::utils;
+use crate::schema::field::Field;
+use crate::schema::utils;
 
 #[derive(Default)]
 pub struct Key {

@@ -9,18 +9,18 @@ mod utils;
 
 pub fn derive(input: DeriveInput) -> syn::Result<TokenStream> {
     validate(&input)?;
-    let attr = attributes::Entity::parse(&input)?;
+    let attr = attributes::Schema::parse(&input)?;
 
-    Ok(expand::entity(&input.ident, &attr))
+    Ok(expand::schema(&input.ident, &attr))
 }
 
 fn validate(input: &DeriveInput) -> syn::Result<()> {
     match &input.data {
         Data::Struct(data) if matches!(data.fields, Fields::Named(_)) => Ok(()),
-        Data::Struct(_) => Err(Error::new(input.span(), "Entity requires named fields")),
+        Data::Struct(_) => Err(Error::new(input.span(), "Schema requires named fields")),
         _ => Err(Error::new(
             input.span(),
-            "Entity can only be derived for structs",
+            "Schema can only be derived for structs",
         )),
     }
 }

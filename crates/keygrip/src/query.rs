@@ -1,24 +1,24 @@
 use crate::types::Sort;
-use crate::{attr, item, request, Cursor, Entity, Error, Handle, Index, KeyPart, Page, Result};
+use crate::{attr, item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema};
 use std::collections::HashMap;
 
 /// A typed transliteration of the DynamoDB Query API.
 ///
-/// Built by [`Handle::query`]; constrained to what a single Query call can
+/// Built by [`Entity::query`]; constrained to what a single Query call can
 /// express natively — a partition equality, at most one sort-key condition,
 /// a direction, and pagination. Attribute names come from the entity's key
 /// schema, never from strings at the call site.
-pub struct Query<'h, E: Entity> {
-    handle: &'h Handle<E>,
+pub struct Query<'e, E: Schema> {
+    entity: &'e Entity<E>,
     partition: String,
     index: Option<&'static Index>,
     sort: Option<Sort>,
     newest: bool,
 }
 
-pub fn new<E: Entity>(handle: &Handle<E>, partition: String) -> Query<'_, E> {
+pub fn new<E: Schema>(entity: &Entity<E>, partition: String) -> Query<'_, E> {
     Query {
-        handle,
+        entity,
         partition,
         index: None,
         sort: None,
@@ -26,7 +26,7 @@ pub fn new<E: Entity>(handle: &Handle<E>, partition: String) -> Query<'_, E> {
     }
 }
 
-impl<E: Entity> Query<'_, E> {
+impl<E: Schema> Query<'_, E> {
     /// Targets a global secondary index declared on the entity
     /// (`#[entity(index(…))]`) instead of the primary key.
     pub fn index(mut self, index: &'static Index) -> Self {
@@ -83,10 +83,10 @@ impl<E: Entity> Query<'_, E> {
         let sort = self.index.map_or(E::SORT, |index| index.sort);
         let mut expression = "#partition = :partition".to_string();
         let mut query = self
-            .handle
+            .entity
             .client()
             .query()
-            .table_name(self.handle.name())
+            .table_name(self.entity.name())
             .set_index_name(self.index.map(|index| index.name.to_string()))
             .key_condition_expression(&expression)
             .expression_attribute_names("#partition", partition)
