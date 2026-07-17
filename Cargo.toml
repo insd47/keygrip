@@ -3,13 +3,15 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.0.0"
 edition = "2021"
 authors = ["insd47"]
 license = "MIT"
 repository = "https://github.com/insd47/keygrip"
 
 [workspace.dependencies]
+keygrip-derive = { version = "=0.0.0", path = "crates/keygrip-derive" }
+
 aws-sdk-dynamodb = "1"
 heck = "0.5"
 proc-macro2 = "1"

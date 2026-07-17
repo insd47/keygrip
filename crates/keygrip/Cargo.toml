@@ -20,7 +20,7 @@ dynamodb = [
 
 [dependencies]
 aws-sdk-dynamodb = { workspace = true, optional = true }
-keygrip-derive = { version = "=0.3.0", path = "../keygrip-derive" }
+keygrip-derive.workspace = true
 serde.workspace = true
 serde_dynamo = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }

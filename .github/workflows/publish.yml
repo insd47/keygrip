@@ -21,7 +21,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           sed -i '' -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
-          sed -i '' -E "s/version = \"=[^\"]+\"/version = \"=$VERSION\"/" crates/keygrip/Cargo.toml
+          sed -i '' -E "s/version = \"=[^\"]+\"/version = \"=$VERSION\"/" Cargo.toml
 
       - name: 검사
         run: cargo test --workspace --all-features
