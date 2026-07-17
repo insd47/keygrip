@@ -19,7 +19,7 @@
 //! }
 //!
 //! async fn users(client: Client) -> Result<Vec<UserTable>> {
-//!     let users = Entity::<UserTable>::new(client, "Users");
+//!     let users = Entity::<UserTable>::new(&client, "Users");
 //!
 //!     users.query("contest").newest().all().await
 //! }
@@ -28,7 +28,8 @@
 //! # Feature flags
 //!
 //! - `dynamodb` *(default)* — the AWS SDK-backed [`Entity`], [`Query`], and the
-//!   extension toolkit ([`attr`], [`item`], [`occ`], [`request`]).
+//!   extension toolkit ([`attr`], [`item`], [`occ`], [`request`],
+//!   [`transaction`]).
 //! - Without default features, only the schema vocabulary ([`Schema`],
 //!   [`Parts`], [`Index`], [`KeyPart`]) and the derive macro remain — for
 //!   model-only crates that must not compile the AWS SDK.
@@ -52,6 +53,8 @@ mod query;
 #[cfg(feature = "dynamodb")]
 pub mod request;
 mod schema;
+#[cfg(feature = "dynamodb")]
+pub mod transaction;
 #[cfg(feature = "dynamodb")]
 mod types;
 

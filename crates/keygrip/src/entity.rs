@@ -11,9 +11,10 @@ use std::marker::PhantomData;
 ///
 /// The model declares its key [`Schema`]; the entity owns a client and table
 /// name and turns that schema into requests. Domain-specific operations —
-/// conditional updates, transactions — are meant to live outside this crate;
-/// see the crate documentation for the extension pattern built on
-/// [`client`](Entity::client) and [`name`](Entity::name).
+/// conditional updates — are meant to live outside this crate. Atomic writes
+/// can be assembled with [`transaction`](crate::transaction); see the crate
+/// documentation for the extension pattern built on [`client`](Entity::client)
+/// and [`name`](Entity::name).
 #[derive(Debug, Clone)]
 pub struct Entity<E: Schema> {
     client: Client,
@@ -22,10 +23,10 @@ pub struct Entity<E: Schema> {
 }
 
 impl<E: Schema> Entity<E> {
-    /// Creates a live entity for `name` using the given client.
-    pub fn new(client: Client, name: impl Into<String>) -> Self {
+    /// Creates a live entity for `name`, cloning the given client.
+    pub fn new(client: &Client, name: impl Into<String>) -> Self {
         Self {
-            client,
+            client: client.clone(),
             name: name.into(),
             marker: PhantomData,
         }
