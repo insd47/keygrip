@@ -28,8 +28,8 @@
 //! # Feature flags
 //!
 //! - `dynamodb` *(default)* — the AWS SDK-backed [`Entity`], [`Query`], and the
-//!   extension toolkit ([`attr`], [`item`], [`occ`], [`request`],
-//!   [`transaction`]).
+//!   extension toolkit ([`attr`], [`expression`], [`item`], [`occ`],
+//!   [`request`], [`transaction`], [`write`](mod@write)).
 //! - Without default features, only the schema vocabulary ([`Schema`],
 //!   [`Parts`], [`Index`], [`KeyPart`]) and the derive macro remain — for
 //!   model-only crates that must not compile the AWS SDK.
@@ -39,9 +39,13 @@ extern crate self as keygrip;
 #[cfg(feature = "dynamodb")]
 pub mod attr;
 #[cfg(feature = "dynamodb")]
+mod binding;
+#[cfg(feature = "dynamodb")]
 mod entity;
 #[cfg(feature = "dynamodb")]
 mod error;
+#[cfg(feature = "dynamodb")]
+pub mod expression;
 #[cfg(feature = "dynamodb")]
 pub mod item;
 #[cfg(feature = "dynamodb")]
@@ -57,6 +61,8 @@ mod schema;
 pub mod transaction;
 #[cfg(feature = "dynamodb")]
 mod types;
+#[cfg(feature = "dynamodb")]
+pub mod write;
 
 #[cfg(feature = "dynamodb")]
 pub use entity::Entity;

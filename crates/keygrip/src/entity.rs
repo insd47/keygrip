@@ -10,11 +10,10 @@ use std::marker::PhantomData;
 /// operations.
 ///
 /// The model declares its key [`Schema`]; the entity owns a client and table
-/// name and turns that schema into requests. Domain-specific operations —
-/// conditional updates — are meant to live outside this crate. Atomic writes
-/// can be assembled with [`transaction`](crate::transaction); see the crate
-/// documentation for the extension pattern built on [`client`](Entity::client)
-/// and [`name`](Entity::name).
+/// name and turns that schema into requests. Domain-specific invariants remain
+/// in extension code, which can issue conditional [`update`](Entity::update)
+/// and [`store`](Entity::store) operations or assemble atomic writes with
+/// [`transaction`](crate::transaction).
 #[derive(Debug, Clone)]
 pub struct Entity<E: Schema> {
     client: Client,
@@ -34,8 +33,8 @@ impl<E: Schema> Entity<E> {
 
     /// Returns the DynamoDB client this entity uses.
     ///
-    /// Exposed for extension code that issues its own SDK calls against the
-    /// same table (conditional updates, transactions).
+    /// Exposed for extension code that issues operations outside the typed
+    /// surface or runs a [`Transaction`](crate::transaction::Transaction).
     pub fn client(&self) -> &Client {
         &self.client
     }

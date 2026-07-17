@@ -2,9 +2,10 @@
 //! multi-item invariants with `TransactWriteItems`.
 //!
 //! A [`Transaction`] is pure step data: it holds no client, and
-//! [`run`](Transaction::run) receives one at execution time. It pairs with
-//! [`occ`](crate::occ) — an optimistic retry guards a single item, a
-//! transaction commits writes to several items atomically.
+//! [`run`](Transaction::run) receives one at execution time. It completes the
+//! toolkit's write spectrum: [`occ`](crate::occ) retries a single-item
+//! read-modify-write, [`write`](crate::write) performs one conditional write,
+//! and a transaction commits writes to several items atomically.
 //!
 //! Each step's [`Expression`] bindings are isolated from every other step's,
 //! so placeholders may be reused freely across steps; only an update sharing
@@ -14,7 +15,8 @@
 //!
 //! ```no_run
 //! use aws_sdk_dynamodb::Client;
-//! use keygrip::transaction::{Expression, Transaction, TransactionError};
+//! use keygrip::expression::Expression;
+//! use keygrip::transaction::{Transaction, TransactionError};
 //! use keygrip::{Entity, Schema};
 //! use serde::{Deserialize, Serialize};
 //!
@@ -69,8 +71,11 @@
 //! }
 //! ```
 
+pub use crate::expression::Expression;
+
+use crate::binding::{Bindings, BoundExpression};
 use crate::key::document_key;
-use crate::{attr, item, Entity, Error, Schema};
+use crate::{item, Entity, Error, Schema};
 use aws_sdk_dynamodb::operation::transact_write_items::TransactWriteItemsError;
 use aws_sdk_dynamodb::types::{
     AttributeValue, CancellationReason, Delete, Put, TransactWriteItem, Update,
@@ -79,65 +84,6 @@ use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 
 const CONDITION_FAILED: &str = "ConditionalCheckFailed";
-
-/// A DynamoDB expression together with its placeholder bindings.
-#[derive(Debug, Clone)]
-pub struct Expression {
-    statement: String,
-    names: HashMap<String, String>,
-    values: HashMap<String, AttributeValue>,
-}
-
-impl Expression {
-    /// Creates an expression with no bindings.
-    pub fn new(statement: impl Into<String>) -> Self {
-        Self {
-            statement: statement.into(),
-            names: HashMap::new(),
-            values: HashMap::new(),
-        }
-    }
-
-    /// Binds an attribute name placeholder (`#…`).
-    pub fn name(mut self, placeholder: impl Into<String>, name: impl Into<String>) -> Self {
-        self.names.insert(placeholder.into(), name.into());
-        self
-    }
-
-    /// Binds a string value placeholder (`:…`).
-    pub fn string(mut self, placeholder: impl Into<String>, value: impl Into<String>) -> Self {
-        self.values.insert(placeholder.into(), attr::s(value));
-        self
-    }
-
-    /// Binds a number value placeholder (`:…`).
-    pub fn number(mut self, placeholder: impl Into<String>, value: impl ToString) -> Self {
-        self.values.insert(placeholder.into(), attr::n(value));
-        self
-    }
-
-    fn collision(&self, condition: &Self) -> Option<String> {
-        if let Some(placeholder) = condition
-            .names
-            .keys()
-            .find(|placeholder| self.names.contains_key(*placeholder))
-        {
-            return Some(format!(
-                "expression name placeholder {placeholder} is bound by both the update and condition"
-            ));
-        }
-
-        condition
-            .values
-            .keys()
-            .find(|placeholder| self.values.contains_key(*placeholder))
-            .map(|placeholder| {
-                format!(
-                    "expression value placeholder {placeholder} is bound by both the update and condition"
-                )
-            })
-    }
-}
 
 /// Why a transaction failed to assemble or run.
 #[derive(Debug, thiserror::Error)]
@@ -409,7 +355,7 @@ impl Step {
             return Err("a transaction step cannot have more than one condition".into());
         }
         if let Action::Update { expression, .. } = &self.action {
-            if let Some(collision) = expression.collision(&condition) {
+            if let Some(collision) = expression.bindings().collision(condition.bindings()) {
                 return Err(collision);
             }
         }
@@ -424,10 +370,15 @@ impl Step {
                 let mut put = Put::builder().table_name(table).set_item(Some(document));
 
                 if let Some(condition) = self.condition {
+                    let Bindings {
+                        statement,
+                        names,
+                        values,
+                    } = condition.into_bindings();
                     put = put
-                        .condition_expression(condition.statement)
-                        .set_expression_attribute_names(present(condition.names))
-                        .set_expression_attribute_values(present(condition.values));
+                        .condition_expression(statement)
+                        .set_expression_attribute_names(present(names))
+                        .set_expression_attribute_values(present(values));
                 }
 
                 let put = put.build().map_err(TransactionError::unavailable)?;
@@ -438,17 +389,18 @@ impl Step {
                 key,
                 expression,
             } => {
-                let Expression {
+                let Bindings {
                     statement,
                     mut names,
                     mut values,
-                } = expression;
+                } = expression.into_bindings();
                 let mut update = Update::builder()
                     .table_name(table)
                     .set_key(Some(key))
                     .update_expression(statement);
 
                 if let Some(condition) = self.condition {
+                    let condition = condition.into_bindings();
                     names.extend(condition.names);
                     values.extend(condition.values);
                     update = update.condition_expression(condition.statement);
@@ -466,10 +418,15 @@ impl Step {
                 let mut delete = Delete::builder().table_name(table).set_key(Some(key));
 
                 if let Some(condition) = self.condition {
+                    let Bindings {
+                        statement,
+                        names,
+                        values,
+                    } = condition.into_bindings();
                     delete = delete
-                        .condition_expression(condition.statement)
-                        .set_expression_attribute_names(present(condition.names))
-                        .set_expression_attribute_values(present(condition.values));
+                        .condition_expression(statement)
+                        .set_expression_attribute_names(present(names))
+                        .set_expression_attribute_values(present(values));
                 }
 
                 let delete = delete.build().map_err(TransactionError::unavailable)?;
