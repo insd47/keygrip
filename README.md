@@ -108,13 +108,36 @@ executions
 .await?;
 ```
 
+## Conditional writes
+
+`Entity::update` and `Entity::store` perform one conditional write without exposing raw SDK request plumbing.
+Condition rejection is returned as `false`, so domain code can retry, fall back to a read, or report its own conflict:
+
+```rust
+use keygrip::expression::Expression;
+
+let applied = users
+    .update(
+        &user.id,
+        Expression::new("SET exited = :true")
+            .boolean(":true", true),
+    )
+    .when(Expression::new("attribute_exists(id)"))
+    .run()
+    .await?;
+```
+
+An update and its condition must use distinct placeholders. Attaching more than one condition is an error when the
+write runs.
+
 ## Atomic writes
 
 `transaction` assembles ordered writes without owning a client. Conditions stay on their write step, and labels let
 callers interpret cancellation by domain name instead of by a positional index:
 
 ```rust
-use keygrip::transaction::{Expression, Transaction};
+use keygrip::expression::Expression;
+use keygrip::transaction::Transaction;
 
 Transaction::new()
     .put(&sessions, &session)?
@@ -144,10 +167,11 @@ reused freely by different steps because their bindings are isolated.
 Domain operations — conditional updates, optimistic locking, and the contents of transactions — are where your
 invariants live, so keygrip does not try to generalize them. Instead it hands you the pieces:
 
-- `entity.client()` and `entity.name()` for issuing SDK calls against the same table;
-- `attr` (attribute-value constructors), `item` (serde ↔ item conversion),
-  `request` (SDK error mapping), `occ` (optimistic retry loop), and `transaction`
-  (ordered atomic-write assembly with labeled condition failures).
+- `entity.update()` and `entity.store()` for one conditional write;
+- `entity.client()` and `entity.name()` for SDK operations outside the typed surface;
+- `attr` (attribute-value constructors), `expression` (bound DynamoDB expressions), `item` (serde ↔ item
+  conversion), `request` (SDK error mapping), `occ` (optimistic retry loop), and `transaction` (ordered atomic-write
+  assembly with labeled condition failures).
 
 Since Rust does not allow inherent impls on foreign types, wrap the entity in a thin newtype in your crate and attach
 domain methods there:
