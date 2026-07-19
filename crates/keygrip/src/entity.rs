@@ -12,7 +12,8 @@ use std::marker::PhantomData;
 /// The model declares its key [`Schema`]; the entity owns a client and table
 /// name and turns that schema into requests. Domain-specific invariants remain
 /// in extension code, which can issue conditional [`update`](Entity::update)
-/// and [`store`](Entity::store) operations or assemble atomic writes with
+/// and [`store`](Entity::store) operations, merge stable item shapes with
+/// [`merge`](Entity::merge), or assemble atomic writes with
 /// [`transaction`](crate::transaction).
 #[derive(Debug, Clone)]
 pub struct Entity<E: Schema> {

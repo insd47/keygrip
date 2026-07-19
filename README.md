@@ -110,8 +110,9 @@ executions
 
 ## Conditional writes
 
-`Entity::update` and `Entity::store` perform one conditional write without exposing raw SDK request plumbing.
-Condition rejection is returned as `false`, so domain code can retry, fall back to a read, or report its own conflict:
+`Entity::update`, `Entity::merge`, and `Entity::store` perform one conditional write without exposing raw SDK
+request plumbing. Condition rejection is returned as `false`, so domain code can retry, fall back to a read, or
+report its own conflict:
 
 ```rust
 use keygrip::expression::Expression;
@@ -129,6 +130,10 @@ let applied = users
 
 An update and its condition must use distinct placeholders. Attaching more than one condition is an error when the
 write runs.
+
+`merge` writes every serialized field through `UpdateItem` and can preserve selected fields with `if_not_exists`.
+Unlike `store`, it does not remove attributes absent from the new value. Use it only when every write preserves the
+same field set; use `store` when a missing field must be removed.
 
 ## Atomic writes
 
@@ -167,7 +172,7 @@ reused freely by different steps because their bindings are isolated.
 Domain operations — conditional updates, optimistic locking, and the contents of transactions — are where your
 invariants live, so keygrip does not try to generalize them. Instead it hands you the pieces:
 
-- `entity.update()` and `entity.store()` for one conditional write;
+- `entity.update()`, `entity.merge()`, and `entity.store()` for one conditional write;
 - `entity.client()` and `entity.name()` for SDK operations outside the typed surface;
 - `attr` (attribute-value constructors), `expression` (bound DynamoDB expressions), `item` (serde ↔ item
   conversion), `request` (SDK error mapping), `occ` (optimistic retry loop), and `transaction` (ordered atomic-write
