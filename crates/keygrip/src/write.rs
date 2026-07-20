@@ -235,7 +235,7 @@ impl<E: Schema> Update<'_, E> {
     /// Attaches the condition that must hold for the update to apply.
     ///
     /// At most one condition may be attached; a second condition fails at
-    /// [`run`](Self::run).
+    /// [`run`](Self::run) or [`fetch`](Self::fetch).
     pub fn when(mut self, condition: Expression) -> Self {
         self.condition.attach(condition);
         self
@@ -250,6 +250,23 @@ impl<E: Schema> Update<'_, E> {
             Err(error) if request::conditional(&error) => Ok(false),
             Err(error) => Err(request::unavailable(error)),
         }
+    }
+
+    /// Applies the update and returns the stored item.
+    ///
+    /// Returns `None` when the condition is rejected.
+    pub async fn fetch(self) -> Result<Option<E>> {
+        let request = self.fetch_request()?;
+
+        match request.send().await {
+            Ok(response) => item::option(response.attributes),
+            Err(error) if request::conditional(&error) => Ok(None),
+            Err(error) => Err(request::unavailable(error)),
+        }
+    }
+
+    fn fetch_request(self) -> Result<UpdateItemFluentBuilder> {
+        Ok(self.request()?.return_values(ReturnValue::AllNew))
     }
 
     fn request(self) -> Result<UpdateItemFluentBuilder> {
@@ -645,6 +662,18 @@ mod tests {
         let submissions = submission_entity();
         let submission = submission();
         let request = submissions.merge(&submission).fetch_request().unwrap();
+        let input = request.as_input();
+
+        assert_eq!(
+            input.get_return_values().as_ref(),
+            Some(&ReturnValue::AllNew)
+        );
+    }
+
+    #[test]
+    fn update_fetch_requests_all_new_attributes() {
+        let records = entity();
+        let request = update(&records).fetch_request().unwrap();
         let input = request.as_input();
 
         assert_eq!(
