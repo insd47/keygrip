@@ -46,6 +46,13 @@ impl<E: Schema> Query<'_, E> {
         self
     }
 
+    /// Constrains the sort key to values strictly greater than `value` —
+    /// the cursor idiom for resuming a chronological partition.
+    pub fn after<P: KeyPart + ?Sized>(mut self, value: &P) -> Self {
+        self.sort = Some(Sort::After(value.part()));
+        self
+    }
+
     /// Returns items in descending sort-key order (newest first when the
     /// sort key is chronological).
     pub fn newest(mut self) -> Self {
@@ -107,6 +114,10 @@ impl<E: Schema> Query<'_, E> {
                 }
                 Sort::Equal(value) => {
                     expression.push_str(" AND #sort = :sort");
+                    query = query.expression_attribute_values(":sort", attr::s(value));
+                }
+                Sort::After(value) => {
+                    expression.push_str(" AND #sort > :sort");
                     query = query.expression_attribute_values(":sort", attr::s(value));
                 }
             }

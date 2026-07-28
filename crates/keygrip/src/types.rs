@@ -18,4 +18,5 @@ pub struct Page<E> {
 pub enum Sort {
     Prefix(String),
     Equal(String),
+    After(String),
 }
