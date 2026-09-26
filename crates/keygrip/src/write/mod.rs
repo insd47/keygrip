@@ -18,8 +18,7 @@ pub use put::Put;
 pub use update::Update;
 
 use crate::binding::Bindings;
-use crate::expression::Expression;
-use crate::{request, Error, Result};
+use crate::{request, Error, Expression, Result};
 use aws_sdk_dynamodb::error::{ProvideErrorMetadata, SdkError};
 use aws_sdk_dynamodb::types::AttributeValue;
 use condition::Slot;

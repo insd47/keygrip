@@ -1,5 +1,6 @@
 use crate::types::Sort;
-use crate::{attr, item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema};
+use crate::{item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema};
+use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
 /// A typed transliteration of the DynamoDB Query API.
@@ -116,7 +117,7 @@ impl<E: Schema> Query<'_, E> {
             .set_index_name(self.index.map(|index| index.name.to_string()))
             .key_condition_expression(&expression)
             .expression_attribute_names("#partition", partition)
-            .expression_attribute_values(":partition", attr::s(&self.partition))
+            .expression_attribute_values(":partition", AttributeValue::S(self.partition.clone()))
             .scan_index_forward(!self.newest)
             .consistent_read(self.consistent)
             .set_exclusive_start_key(cursor)
@@ -130,15 +131,18 @@ impl<E: Schema> Query<'_, E> {
             match condition {
                 Sort::Prefix(prefix) => {
                     expression.push_str(" AND begins_with(#sort, :sort)");
-                    query = query.expression_attribute_values(":sort", attr::s(prefix));
+                    query = query
+                        .expression_attribute_values(":sort", AttributeValue::S(prefix.clone()));
                 }
                 Sort::Equal(value) => {
                     expression.push_str(" AND #sort = :sort");
-                    query = query.expression_attribute_values(":sort", attr::s(value));
+                    query = query
+                        .expression_attribute_values(":sort", AttributeValue::S(value.clone()));
                 }
                 Sort::After(value) => {
                     expression.push_str(" AND #sort > :sort");
-                    query = query.expression_attribute_values(":sort", attr::s(value));
+                    query = query
+                        .expression_attribute_values(":sort", AttributeValue::S(value.clone()));
                 }
             }
 

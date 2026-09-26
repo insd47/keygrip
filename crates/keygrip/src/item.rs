@@ -1,5 +1,4 @@
-//! serde ↔ DynamoDB item conversions with this crate's error mapping, for
-//! extension code that reads or writes raw items.
+//! serde ↔ DynamoDB item conversions with this crate's error mapping.
 
 use crate::{Error, Result};
 use aws_sdk_dynamodb::types::AttributeValue;
@@ -29,11 +28,6 @@ pub fn option<T: DeserializeOwned>(
 /// Serializes a value into a DynamoDB item.
 pub fn to<T: Serialize>(value: &T) -> Result<HashMap<String, AttributeValue>> {
     serde_dynamo::to_item(value).map_err(invalid)
-}
-
-/// Serializes a value into a single attribute value.
-pub fn value<T: Serialize>(value: T) -> Result<AttributeValue> {
-    serde_dynamo::to_attribute_value(value).map_err(invalid)
 }
 
 fn invalid(error: serde_dynamo::Error) -> Error {

@@ -13,7 +13,7 @@ use std::collections::HashMap;
 /// strings, numbers, enums, lists, nested structs — binds directly:
 ///
 /// ```
-/// use keygrip::expression::Expression;
+/// use keygrip::Expression;
 ///
 /// let review = Expression::new("SET #state = :state, tags = :tags")
 ///     .name("#state", "state")

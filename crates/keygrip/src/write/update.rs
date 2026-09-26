@@ -1,8 +1,7 @@
 use super::{applied, clause, invalid, Clause, Condition, Pending, Slot};
 use crate::binding::Bindings;
-use crate::expression::Expression;
 use crate::key::document_key;
-use crate::{item, Entity, Result, Schema};
+use crate::{item, Entity, Expression, Result, Schema};
 use aws_sdk_dynamodb::operation::update_item::builders::UpdateItemFluentBuilder;
 use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};
 use std::collections::HashMap;
@@ -16,8 +15,7 @@ use std::future::{Future, IntoFuture};
 /// [`fetch`](Self::fetch) returns the stored item instead:
 ///
 /// ```no_run
-/// use keygrip::expression::Expression;
-/// use keygrip::{Entity, Result, Schema};
+/// use keygrip::{Entity, Expression, Result, Schema};
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Debug, Serialize, Deserialize, Schema)]
@@ -250,7 +248,7 @@ fn merge<E: Schema>(
 #[cfg(test)]
 mod tests {
     use super::Update;
-    use crate::expression::Expression;
+    use crate::Expression;
     use crate::{Condition, Entity, Error};
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};

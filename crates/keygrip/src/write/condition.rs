@@ -1,6 +1,5 @@
 use super::invalid;
-use crate::expression::Expression;
-use crate::{Result, Schema};
+use crate::{Expression, Result, Schema};
 
 const KEY: &str = "#keygripKey";
 
@@ -11,8 +10,7 @@ const KEY: &str = "#keygripKey";
 /// [`Expression`]:
 ///
 /// ```
-/// use keygrip::expression::Expression;
-/// use keygrip::Condition;
+/// use keygrip::{Condition, Expression};
 ///
 /// let absent = Condition::absent();
 /// let fresh: Condition = Expression::new("revision = :revision")

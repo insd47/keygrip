@@ -24,8 +24,7 @@ const CONDITION_FAILED: &str = "ConditionalCheckFailed";
 ///
 /// ```no_run
 /// use aws_sdk_dynamodb::Client;
-/// use keygrip::expression::Expression;
-/// use keygrip::{Condition, Entity, Result, Schema, Transaction};
+/// use keygrip::{Condition, Entity, Expression, Result, Schema, Transaction};
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Debug, Serialize, Deserialize, Schema)]
@@ -224,7 +223,7 @@ fn invalid(detail: impl Into<String>) -> Error {
 #[cfg(test)]
 mod tests {
     use super::{Outcome, Transaction};
-    use crate::expression::Expression;
+    use crate::Expression;
     use crate::{Condition, Entity, Error};
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::types::CancellationReason;

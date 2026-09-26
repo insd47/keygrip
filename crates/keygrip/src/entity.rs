@@ -1,7 +1,8 @@
 use super::query;
-use crate::expression::Expression;
 use crate::key::document_key;
-use crate::{item, request, Delete, Error, KeyPart, Put, Query, Result, Schema, Update};
+use crate::{
+    item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update,
+};
 use aws_sdk_dynamodb::types::KeysAndAttributes;
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;

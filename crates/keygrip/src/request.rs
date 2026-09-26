@@ -1,4 +1,4 @@
-//! SDK error mapping helpers, for extension code that sends its own requests.
+//! SDK error mapping.
 
 use crate::Error;
 use aws_sdk_dynamodb::error::{ProvideErrorMetadata, SdkError};
