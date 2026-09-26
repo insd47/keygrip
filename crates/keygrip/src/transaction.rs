@@ -2,10 +2,7 @@
 //! multi-item invariants with `TransactWriteItems`.
 //!
 //! A [`Transaction`] is pure step data: it holds no client, and
-//! [`run`](Transaction::run) receives one at execution time. It completes the
-//! toolkit's write spectrum: [`occ`](crate::occ) retries a single-item
-//! read-modify-write, [`write`](crate::write) performs one conditional write,
-//! and a transaction commits writes to several items atomically.
+//! [`run`](Transaction::run) receives one at execution time.
 //!
 //! Each step's [`Expression`] bindings are isolated from every other step's,
 //! so placeholders may be reused freely across steps; only an update sharing

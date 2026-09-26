@@ -1,6 +1,6 @@
-//! DynamoDB expression bindings, shared by the conditional-write
-//! ([`write`](crate::write)) and atomic-write ([`transaction`](crate::transaction))
-//! builders.
+//! DynamoDB expressions with placeholder bindings, shared by
+//! [`Update`](crate::Update), [`Condition`](crate::Condition), and
+//! [`transaction`](crate::transaction) steps.
 
 use crate::binding::Bindings;
 use crate::{Error, Result};

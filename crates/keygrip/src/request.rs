@@ -15,19 +15,6 @@ where
         == Some("ConditionalCheckFailedException")
 }
 
-/// Maps a rejected condition to [`Error::Conflict`] with the given detail,
-/// and anything else to [`Error::Unavailable`].
-pub fn conflict<E, R>(error: SdkError<E, R>, detail: &'static str) -> Error
-where
-    E: ProvideErrorMetadata,
-{
-    if conditional(&error) {
-        Error::Conflict(detail)
-    } else {
-        unavailable(error)
-    }
-}
-
 /// Maps any displayable error to [`Error::Unavailable`].
 pub fn unavailable(error: impl std::fmt::Display) -> Error {
     Error::Unavailable(error.to_string())
