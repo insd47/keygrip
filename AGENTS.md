@@ -15,9 +15,10 @@
 ## Conventions
 
 - This is a public crates.io crate: all rustdoc, README, and code comments are
-  written in **English**, in the existing house style (see `occ.rs` /
-  `request.rs` module docs). Commit messages are Korean.
+  written in **English**, in the existing house style (see `write/mod.rs` /
+  `transaction/mod.rs` docs). Commit messages are Korean.
 - Keep the API surface minimal and semver-deliberate — additions are debt.
   Domain/app-specific operations belong in consumer crates, not here.
-- Verification: `cargo fmt --all --check && cargo clippy --all-targets &&
-  cargo test` (doctests included).
+- Verification (same as CI): `cargo fmt --all --check && cargo clippy
+  --workspace --all-targets --all-features -- -D warnings && cargo test
+  --workspace --all-features` (doctests included).
