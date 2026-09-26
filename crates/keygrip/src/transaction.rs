@@ -49,12 +49,12 @@
 //!             session.user_id.as_str(),
 //!             Expression::new("SET #session = :session")
 //!                 .name("#session", "session")
-//!                 .string(":session", &session.token_hash),
+//!                 .value(":session", &session.token_hash),
 //!         )?
 //!         .when(
 //!             Expression::new("#session = :previous")
 //!                 .name("#session", "session")
-//!                 .string(":previous", previous),
+//!                 .value(":previous", previous),
 //!         )
 //!         .label("pointer")
 //!         .delete(&sessions, previous)?
@@ -73,7 +73,7 @@
 
 pub use crate::expression::Expression;
 
-use crate::binding::{Bindings, BoundExpression};
+use crate::binding::Bindings;
 use crate::key::document_key;
 use crate::{item, Entity, Error, Schema};
 use aws_sdk_dynamodb::operation::transact_write_items::TransactWriteItemsError;
@@ -133,6 +133,7 @@ impl From<TransactionError> for Error {
     fn from(error: TransactionError) -> Self {
         match error.0 {
             TransactionFailure::Database(error) => error,
+            TransactionFailure::Invalid(detail) => Self::Invalid(detail),
             failure => Self::Unavailable(failure.to_string()),
         }
     }
@@ -140,7 +141,7 @@ impl From<TransactionError> for Error {
 
 #[derive(Debug, thiserror::Error)]
 enum TransactionFailure {
-    #[error("invalid transaction: {0}")]
+    #[error("invalid operation: transaction: {0}")]
     Invalid(String),
     #[error("transaction canceled: {reasons:?}")]
     Canceled {
@@ -374,7 +375,7 @@ impl Step {
                         statement,
                         names,
                         values,
-                    } = condition.into_bindings();
+                    } = condition.compile().map_err(TransactionError::database)?;
                     put = put
                         .condition_expression(statement)
                         .set_expression_attribute_names(present(names))
@@ -393,14 +394,14 @@ impl Step {
                     statement,
                     mut names,
                     mut values,
-                } = expression.into_bindings();
+                } = expression.compile().map_err(TransactionError::database)?;
                 let mut update = Update::builder()
                     .table_name(table)
                     .set_key(Some(key))
                     .update_expression(statement);
 
                 if let Some(condition) = self.condition {
-                    let condition = condition.into_bindings();
+                    let condition = condition.compile().map_err(TransactionError::database)?;
                     names.extend(condition.names);
                     values.extend(condition.values);
                     update = update.condition_expression(condition.statement);
@@ -422,7 +423,7 @@ impl Step {
                         statement,
                         names,
                         values,
-                    } = condition.into_bindings();
+                    } = condition.compile().map_err(TransactionError::database)?;
                     delete = delete
                         .condition_expression(statement)
                         .set_expression_attribute_names(present(names))
@@ -487,7 +488,7 @@ mod tests {
                 "two",
                 Expression::new("SET #value = :value")
                     .name("#value", "value")
-                    .string(":value", "next"),
+                    .value(":value", "next"),
             )
             .unwrap()
             .delete(&records, "three")
@@ -520,8 +521,8 @@ mod tests {
                 Expression::new("#value = :previous").name("#value", "previous"),
             ),
             (
-                Expression::new("SET value = :value").string(":value", "next"),
-                Expression::new("value = :value").string(":value", "previous"),
+                Expression::new("SET value = :value").value(":value", "next"),
+                Expression::new("value = :value").value(":value", "previous"),
             ),
         ];
 
@@ -586,13 +587,13 @@ mod tests {
                 "user",
                 Expression::new("SET #session = :session")
                     .name("#session", "session")
-                    .string(":session", "session"),
+                    .value(":session", "session"),
             )
             .unwrap()
             .when(
                 Expression::new("#pointer = :previous")
                     .name("#pointer", "session")
-                    .string(":previous", "previous"),
+                    .value(":previous", "previous"),
             )
             .label("pointer");
 

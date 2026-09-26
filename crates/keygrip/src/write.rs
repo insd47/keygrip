@@ -30,18 +30,18 @@
 //!     submissions
 //!         .update(
 //!             id,
-//!             Expression::new("SET score = :score").number(":score", score),
+//!             Expression::new("SET score = :score").value(":score", &score),
 //!         )
 //!         .when(
 //!             Expression::new("attribute_not_exists(score) OR score < :floor")
-//!                 .number(":floor", score),
+//!                 .value(":floor", &score),
 //!         )
 //!         .run()
 //!         .await
 //! }
 //! ```
 
-use crate::binding::{Bindings, BoundExpression};
+use crate::binding::Bindings;
 use crate::expression::Expression;
 use crate::key::document_key;
 use crate::{item, request, Entity, Error, Result, Schema};
@@ -211,7 +211,7 @@ impl<E: Schema> Merge<'_, E> {
             .update_expression(statement);
 
         if let Some(condition) = condition {
-            let condition = condition.into_bindings();
+            let condition = condition.compile()?;
             names.extend(condition.names);
             values.extend(condition.values);
             request = request.condition_expression(condition.statement);
@@ -284,7 +284,7 @@ impl<E: Schema> Update<'_, E> {
             statement,
             mut names,
             mut values,
-        } = self.expression.into_bindings();
+        } = self.expression.compile()?;
         let mut request = self
             .entity
             .client()
@@ -294,7 +294,7 @@ impl<E: Schema> Update<'_, E> {
             .update_expression(statement);
 
         if let Some(condition) = condition {
-            let condition = condition.into_bindings();
+            let condition = condition.compile()?;
             names.extend(condition.names);
             values.extend(condition.values);
             request = request.condition_expression(condition.statement);
@@ -350,7 +350,7 @@ impl<E: Schema> Store<'_, E> {
                 statement,
                 names,
                 values,
-            } = condition.into_bindings();
+            } = condition.compile()?;
             request = request
                 .condition_expression(statement)
                 .set_expression_attribute_names(present(names))
@@ -387,7 +387,7 @@ impl Condition {
 }
 
 fn invalid(detail: impl Into<String>) -> Error {
-    Error::Unavailable(format!("invalid conditional write: {}", detail.into()))
+    Error::Invalid(format!("conditional write: {}", detail.into()))
 }
 
 fn present<K, V>(values: HashMap<K, V>) -> Option<HashMap<K, V>> {
@@ -398,7 +398,7 @@ fn present<K, V>(values: HashMap<K, V>) -> Option<HashMap<K, V>> {
 mod tests {
     use super::Update;
     use crate::expression::Expression;
-    use crate::{attr, Entity};
+    use crate::Entity;
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};
     use aws_sdk_dynamodb::{Client, Config};
@@ -441,8 +441,8 @@ mod tests {
             .update(
                 ("contest", "user", "submission", "one"),
                 Expression::new("SET active = :active, tags = :tags")
-                    .boolean(":active", true)
-                    .value(":tags", attr::list(vec![attr::s("tag")])),
+                    .value(":active", &true)
+                    .value(":tags", &["tag"]),
             )
             .when(Expression::new("attribute_exists(pk)"))
             .request()
@@ -491,7 +491,7 @@ mod tests {
                 ("contest", "user", "submission", "one"),
                 Expression::new("SET #state = :next")
                     .name("#state", "state")
-                    .string(":next", "next"),
+                    .value(":next", "next"),
             )
             .when(Expression::new("#state = :next").name("#state", "previous"))
             .run()
@@ -685,7 +685,7 @@ mod tests {
     fn update(records: &Entity<RecordTable>) -> Update<'_, RecordTable> {
         records.update(
             ("contest", "user", "submission", "one"),
-            Expression::new("SET active = :active").boolean(":active", true),
+            Expression::new("SET active = :active").value(":active", &true),
         )
     }
 

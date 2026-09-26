@@ -16,7 +16,7 @@ pub fn page<E: DeserializeOwned>(
 
 /// Deserializes one DynamoDB item.
 pub fn from<T: DeserializeOwned>(item: HashMap<String, AttributeValue>) -> Result<T> {
-    serde_dynamo::from_item(item).map_err(unavailable)
+    serde_dynamo::from_item(item).map_err(invalid)
 }
 
 /// Deserializes an optional DynamoDB item.
@@ -28,14 +28,14 @@ pub fn option<T: DeserializeOwned>(
 
 /// Serializes a value into a DynamoDB item.
 pub fn to<T: Serialize>(value: &T) -> Result<HashMap<String, AttributeValue>> {
-    serde_dynamo::to_item(value).map_err(unavailable)
+    serde_dynamo::to_item(value).map_err(invalid)
 }
 
 /// Serializes a value into a single attribute value.
 pub fn value<T: Serialize>(value: T) -> Result<AttributeValue> {
-    serde_dynamo::to_attribute_value(value).map_err(unavailable)
+    serde_dynamo::to_attribute_value(value).map_err(invalid)
 }
 
-fn unavailable(error: serde_dynamo::Error) -> Error {
-    Error::Unavailable(error.to_string())
+fn invalid(error: serde_dynamo::Error) -> Error {
+    Error::Invalid(error.to_string())
 }

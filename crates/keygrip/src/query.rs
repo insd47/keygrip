@@ -104,7 +104,7 @@ impl<E: Schema> Query<'_, E> {
 
         if let Some(condition) = &self.sort {
             let sort = sort.ok_or_else(|| {
-                Error::Unavailable("A sort condition was used without a sort key.".into())
+                Error::Invalid("a sort condition was used without a sort key".into())
             })?;
 
             match condition {
