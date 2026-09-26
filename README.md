@@ -34,8 +34,7 @@ A table declaration is a serde struct plus one `#[entity(…)]` attribute:
 
 ```rust
 #[derive(Serialize, Deserialize, Schema)]
-#[entity(pk(user_id), sk(problem_id, kind, id),
-    index(name = "byId", pk(id), sk(user_id)))]
+#[entity(pk(user_id), sk(problem_id, kind, id), index(name = "byId", pk(id), sk(user_id)))]
 struct ExecutionTable {
     user_id: String,
     problem_id: String,
@@ -74,10 +73,10 @@ Manual `impl Schema` remains valid for tables that break these conventions.
 `Entity<E>` pairs a client with a table name. Reads run immediately:
 
 ```rust
-let executions = Entity::<ExecutionTable>::new(&client, "Executions");
+let executions = Entity::<ExecutionTable>::new( & client, "Executions");
 
-executions.get((&user, &problem, &kind, &id)).await?;   // NotFound if absent
-executions.find((&user, &problem, &kind, &id)).await?;  // Option<E>
+executions.get(( & user, & problem, & kind, & id)).await?;   // NotFound if absent
+executions.find(( & user, & problem, & kind, & id)).await?;  // Option<E>
 executions.scan().await?;                               // whole table; small tables only
 executions.batch(keys).await?;                          // ≤100-key chunks, consistent reads
 ```
@@ -90,22 +89,22 @@ direction, pagination, consistency — and nothing DynamoDB cannot do natively i
 ```rust
 // all submit executions for a problem, newest first, one page
 executions
-    .query(&user)
-    .prefix(ExecutionTable::prefix(&problem, &Kind::Submit))
-    .newest()
-    .page(cursor, 20)
-    .await?;            // -> Page { items, cursor }
+.query( & user)
+.prefix(ExecutionTable::prefix( & problem, & Kind::Submit))
+.newest()
+.page(cursor, 20)
+.await?;            // -> Page { items, cursor }
 
 // every execution, including one written a moment ago
-executions.query(&user).consistent().all().await?;
+executions.query( & user).consistent().all().await?;
 
 // point lookup through a GSI (GSIs cannot be read consistently)
 executions
-    .query(&id)
-    .index(&ExecutionTable::BY_ID)
-    .eq(&user)
-    .page(None, 1)
-    .await?;
+.query( & id)
+.index( & ExecutionTable::BY_ID)
+.eq( & user)
+.page(None, 1)
+.await?;
 ```
 
 ## Writes
@@ -116,14 +115,14 @@ awaited:
 ```rust
 use keygrip::{Condition, Expression};
 
-executions.put(&execution).await?;                          // replaces any item at the key
-executions.put(&execution).when(Condition::absent()).await?; // only if the key is free
-executions.delete((&user, &problem, &kind, &id)).await?;
+executions.put( & execution).await?;                          // replaces any item at the key
+executions.put( & execution).when(Condition::absent()).await?; // only if the key is free
+executions.delete(( & user, & problem, & kind, & id)).await?;
 
 let applied = users
-    .update(&user.id, Expression::new("SET exited = :exited").value(":exited", &true))
-    .when(Condition::exists())
-    .await?;
+.update( & user.id, Expression::new("SET exited = :exited").value(":exited", & true))
+.when(Condition::exists())
+.await?;
 ```
 
 Each write takes at most one `Condition`: `Condition::absent()` and `Condition::exists()` check the entity's own key,
@@ -149,22 +148,22 @@ callers interpret a cancellation by domain name instead of by position:
 use keygrip::{Condition, Expression, Transaction};
 
 let outcome = Transaction::new()
-    .add(sessions.put(&session).when(Condition::absent()))
-    .add(
-        users
-            .update(&user.id, Expression::new("SET #session = :session")
-                .name("#session", "session")
-                .value(":session", &session.token_hash))
-            .when(Expression::new("#pointer = :previous")
-                .name("#pointer", "session")
-                .value(":previous", previous)),
-    )
-    .label("pointer")
-    .run(&client)
-    .await?;
+.add(sessions.put( & session).when(Condition::absent()))
+.add(
+users
+.update( & user.id, Expression::new("SET #session = :session")
+.name("#session", "session")
+.value(":session", & session.token_hash))
+.when(Expression::new("#pointer = :previous")
+.name("#pointer", "session")
+.value(":previous", previous)),
+)
+.label("pointer")
+.run( & client)
+.await?;
 
 if outcome.rejected("pointer") {
-    // another rotation won
+// another rotation won
 }
 ```
 
