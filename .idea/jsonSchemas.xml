@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JsonSchemaMappingsProjectConfiguration">
+    <state>
+      <map>
+        <entry key="release-plz.toml">
+          <value>
+            <SchemaInfo>
+              <option name="name" value="release-plz.toml" />
+              <option name="relativePathToSchema" value="https://raw.githubusercontent.com/MarcoIeni/release-plz/main/.schema/latest.json" />
+              <option name="applicationDefined" value="true" />
+              <option name="patterns">
+                <list>
+                  <Item>
+                    <option name="path" value="release-plz.toml" />
+                  </Item>
+                </list>
+              </option>
+            </SchemaInfo>
+          </value>
+        </entry>
+      </map>
+    </state>
+  </component>
+</project>

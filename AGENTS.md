@@ -1,18 +1,16 @@
 # Agent Instructions
 
-## Versioning: Git tags only
+## Versioning: release-plz
 
-- Versions are managed exclusively through Git tags (`vX.Y.Z`). The in-repo
-  versions are placeholders, both in the root `Cargo.toml`:
-  `workspace.package.version = "0.0.0"` and the `keygrip-derive` entry's
-  `=0.0.0` pin in `[workspace.dependencies]`. **Never bump versions in
-  Cargo.toml files** — `.github/workflows/publish.yml` injects the tag version
-  into both lines at publish time.
-- Publishing = the owner pushes a `vX.Y.Z` tag. CI then tests the workspace and
-  publishes `keygrip-derive` first, `keygrip` second (the exact `=` pin makes
-  this order mandatory). Both crates always release lockstep, even when one has
-  no changes.
-- Agents never publish. After changing crate code, stop and let the owner tag.
+- The version lives in the root `Cargo.toml`, in two lines that always move
+  together: `workspace.package.version` and the `keygrip-derive` entry's `=`
+  pin in `[workspace.dependencies]`. Both crates release lockstep.
+- Publishing = a push to `main` that touches the crates.
+  `.github/workflows/publish.yml` runs the checks and `release-plz release`,
+  which publishes only versions missing from crates.io (`keygrip-derive`
+  first). `release-plz.toml` gives each version one `vX.Y.Z` tag and GitHub
+  release, owned by `keygrip`.
+- Agents never publish or push, and bump the version only when the owner asks.
 
 ## Conventions
 
