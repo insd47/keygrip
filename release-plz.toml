@@ -1,6 +1,7 @@
 [[package]]
 name = "keygrip"
 git_tag_name = "v{{ version }}"
+changelog_path = "CHANGELOG.md"
 
 [[package]]
 name = "keygrip-derive"

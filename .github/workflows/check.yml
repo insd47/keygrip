@@ -1,0 +1,40 @@
+name: Check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Rust 설치
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 검사
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace --all-features
+
+      - name: CHANGELOG 버전 대조
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "keygrip") | .version')
+          latest=$(sed -nE 's/^## \[([^]]+)\].*/\1/p' CHANGELOG.md | head -n 1)
+
+          if [ "$version" != "$latest" ]; then
+            echo "::error file=CHANGELOG.md::맨 위 절 [$latest] 이 Cargo.toml 버전 $version 과 다릅니다. 릴리스 본문은 맨 위 절에서 나옵니다."
+            exit 1
+          fi

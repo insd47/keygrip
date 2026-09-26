@@ -28,14 +28,6 @@ jobs:
 
       - name: Rust 설치
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: 검사
-        run: |
-          cargo fmt --all --check
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
-          cargo test --workspace --all-features
 
       - name: crates.io 로그인
         id: auth
