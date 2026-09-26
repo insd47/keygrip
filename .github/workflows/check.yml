@@ -29,12 +29,12 @@ jobs:
           cargo clippy --workspace --all-targets --all-features -- -D warnings
           cargo test --workspace --all-features
 
-      - name: CHANGELOG 버전 대조
+      - name: CHANGELOG 작성 확인
         run: |
           version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "keygrip") | .version')
           latest=$(sed -nE 's/^## \[([^]]+)\].*/\1/p' CHANGELOG.md | head -n 1)
 
           if [ "$version" != "$latest" ]; then
-            echo "::error file=CHANGELOG.md::맨 위 절 [$latest] 이 Cargo.toml 버전 $version 과 다릅니다. 릴리스 본문은 맨 위 절에서 나옵니다."
+            echo "::error file=CHANGELOG.md::상 최신 버전($latest)이 Cargo.toml의 버전($version) 과 다릅니다."
             exit 1
           fi
