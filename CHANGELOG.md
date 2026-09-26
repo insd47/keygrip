@@ -45,6 +45,7 @@ condition rule, and transactions assemble the same values.
 | raw `get_item` + `item::from` for another item shape | a hand-written `impl Schema` for that shape and its own `Entity` on the same table |
 | `request::unavailable` for your own errors | your own error type |
 | `Error::Unavailable` on (de)serialization failures | `Error::Invalid` |
+| `match` on `Error::Conflict(_)` (e.g. → HTTP 409) | remove the arm; conflicts are the `bool`/`Outcome` at the call site. Add an `Error::Invalid(_)` arm |
 
 ## [0.3.3]
 

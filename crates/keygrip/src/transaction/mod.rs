@@ -144,7 +144,7 @@ impl Transaction {
             .send()
             .await;
         let Err(error) = result else {
-            return Ok(Outcome::default());
+            return Ok(Outcome { rejected: None });
         };
 
         if let Some(TransactWriteItemsError::TransactionCanceledException(cancellation)) =
@@ -167,7 +167,7 @@ impl Transaction {
 
 /// How a [`Transaction`] resolved: committed, or canceled by rejected
 /// conditions.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[must_use = "a rejected transaction wrote nothing"]
 pub struct Outcome {
     rejected: Option<Vec<&'static str>>,
@@ -331,7 +331,7 @@ mod tests {
         let reasons = [reason("None"), reason("TransactionConflict")];
 
         assert!(Outcome::canceled(&reasons, &HashMap::new()).is_none());
-        assert!(Outcome::default().committed());
+        assert!(Outcome { rejected: None }.committed());
     }
 
     fn rotate(previous: bool) -> Transaction {
