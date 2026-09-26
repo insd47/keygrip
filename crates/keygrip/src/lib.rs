@@ -29,8 +29,8 @@
 //!
 //! - `dynamodb` *(default)* — the AWS SDK-backed [`Entity`], [`Query`], and the
 //!   writes ([`Put`], [`Update`], [`Delete`], [`Condition`]), and the
-//!   extension toolkit ([`attr`], [`expression`], [`item`], [`request`],
-//!   [`transaction`]).
+//!   atomic writes ([`Transaction`]), and the extension toolkit ([`attr`],
+//!   [`expression`], [`item`], [`request`]).
 //! - Without default features, only the schema vocabulary ([`Schema`],
 //!   [`Parts`], [`Index`], [`KeyPart`]) and the derive macro remain — for
 //!   model-only crates that must not compile the AWS SDK.
@@ -57,7 +57,7 @@ mod query;
 pub mod request;
 mod schema;
 #[cfg(feature = "dynamodb")]
-pub mod transaction;
+mod transaction;
 #[cfg(feature = "dynamodb")]
 mod types;
 #[cfg(feature = "dynamodb")]
@@ -71,6 +71,8 @@ pub use keygrip_derive::Schema;
 #[cfg(feature = "dynamodb")]
 pub use query::Query;
 pub use schema::{Index, Key, KeyPart, Parts, Schema};
+#[cfg(feature = "dynamodb")]
+pub use transaction::{Outcome, Transaction};
 #[cfg(feature = "dynamodb")]
 pub use types::{Cursor, Page};
 #[cfg(feature = "dynamodb")]

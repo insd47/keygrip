@@ -5,7 +5,7 @@
 //! condition is a value, not an error: the write resolves to `false`, and
 //! domain code decides whether that means a retry, a fallback read, or a
 //! conflict. The same values assemble into a
-//! [`Transaction`](crate::transaction::Transaction).
+//! [`Transaction`](crate::Transaction).
 
 mod condition;
 pub(crate) mod delete;

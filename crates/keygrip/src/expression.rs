@@ -1,6 +1,6 @@
 //! DynamoDB expressions with placeholder bindings, shared by
 //! [`Update`](crate::Update), [`Condition`](crate::Condition), and
-//! [`transaction`](crate::transaction) steps.
+//! [`Transaction`](crate::Transaction) steps.
 
 use crate::binding::Bindings;
 use crate::{Error, Result};
@@ -69,10 +69,6 @@ impl Expression {
         }
 
         self
-    }
-
-    pub(crate) fn bindings(&self) -> &Bindings {
-        &self.bindings
     }
 
     pub(crate) fn compile(self) -> Result<Bindings> {

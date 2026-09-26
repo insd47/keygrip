@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 /// ([`put`](Entity::put), [`update`](Entity::update),
 /// [`merge`](Entity::merge), [`delete`](Entity::delete)) return a value that
 /// runs when awaited, or joins a
-/// [`Transaction`](crate::transaction::Transaction).
+/// [`Transaction`](crate::Transaction).
 #[derive(Debug, Clone)]
 pub struct Entity<E: Schema> {
     client: Client,
@@ -36,7 +36,7 @@ impl<E: Schema> Entity<E> {
     /// Returns the DynamoDB client this entity uses.
     ///
     /// Exposed for extension code that issues operations outside the typed
-    /// surface or runs a [`Transaction`](crate::transaction::Transaction).
+    /// surface or runs a [`Transaction`](crate::Transaction).
     pub fn client(&self) -> &Client {
         &self.client
     }
