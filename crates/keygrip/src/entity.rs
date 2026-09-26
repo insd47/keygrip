@@ -1,6 +1,8 @@
 use super::query;
 use crate::key::document_key;
-use crate::{item, request, Error, KeyPart, Query, Result, Schema};
+use crate::{
+    item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update,
+};
 use aws_sdk_dynamodb::types::KeysAndAttributes;
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
@@ -10,11 +12,11 @@ use std::marker::PhantomData;
 /// operations.
 ///
 /// The model declares its key [`Schema`]; the entity owns a client and table
-/// name and turns that schema into requests. Domain-specific invariants remain
-/// in extension code, which can issue conditional [`update`](Entity::update)
-/// and [`store`](Entity::store) operations, merge stable item shapes with
-/// [`merge`](Entity::merge), or assemble atomic writes with
-/// [`transaction`](crate::transaction).
+/// name and turns that schema into requests. Reads run immediately; writes
+/// ([`put`](Entity::put), [`update`](Entity::update),
+/// [`merge`](Entity::merge), [`delete`](Entity::delete)) return a value that
+/// runs when awaited, or joins a
+/// [`Transaction`](crate::Transaction).
 #[derive(Debug, Clone)]
 pub struct Entity<E: Schema> {
     client: Client,
@@ -35,7 +37,7 @@ impl<E: Schema> Entity<E> {
     /// Returns the DynamoDB client this entity uses.
     ///
     /// Exposed for extension code that issues operations outside the typed
-    /// surface or runs a [`Transaction`](crate::transaction::Transaction).
+    /// surface or runs a [`Transaction`](crate::Transaction).
     pub fn client(&self) -> &Client {
         &self.client
     }
@@ -77,62 +79,40 @@ impl<E: Schema> Entity<E> {
             .ok_or_else(|| Error::NotFound(format!("{} not found.", E::NAME)))
     }
 
-    /// Writes the entity only if no item with the same primary key exists;
-    /// fails with [`Error::Conflict`] otherwise.
-    pub async fn create(&self, entity: &E) -> Result<()> {
-        let key = document_key(E::parts(entity.primary()));
-        let mut names = key.keys().collect::<Vec<_>>();
-        names.sort_unstable();
-        let condition = names
-            .into_iter()
-            .map(|name| format!("attribute_not_exists({name})"))
-            .collect::<Vec<_>>()
-            .join(" AND ");
-        let mut document = item::to(entity)?;
-        document.extend(key);
-
-        self.client
-            .put_item()
-            .table_name(&self.name)
-            .set_item(Some(document))
-            .condition_expression(condition)
-            .send()
-            .await
-            .map_err(|error| request::conflict(error, "The item already exists."))?;
-
-        Ok(())
+    /// Starts a [`Put`] of the whole `value`, replacing any item at its key.
+    pub fn put<'a>(&'a self, value: &'a E) -> Put<'a, E> {
+        Put::new(self, value)
     }
 
-    /// Writes the entity unconditionally, replacing any existing item.
-    pub async fn put(&self, entity: &E) -> Result<()> {
-        let mut document = item::to(entity)?;
-        document.extend(document_key(E::parts(entity.primary())));
-
-        self.client
-            .put_item()
-            .table_name(&self.name)
-            .set_item(Some(document))
-            .send()
-            .await
-            .map_err(request::unavailable)?;
-
-        Ok(())
-    }
-
-    /// Deletes the item at the given key; succeeds even if it did not exist.
-    pub async fn delete<'a>(&self, primary: impl Into<E::Key<'a>>) -> Result<()>
+    /// Starts an [`Update`] of the item at `primary` with `expression`.
+    pub fn update<'a>(
+        &self,
+        primary: impl Into<E::Key<'a>>,
+        expression: Expression,
+    ) -> Update<'_, E>
     where
         E: 'a,
     {
-        self.client
-            .delete_item()
-            .table_name(&self.name)
-            .set_key(Some(document_key(E::parts(primary))))
-            .send()
-            .await
-            .map_err(request::unavailable)?;
+        Update::expression(self, document_key(E::parts(primary)), expression)
+    }
 
-        Ok(())
+    /// Starts an [`Update`] that sets every serialized non-key attribute of
+    /// `value`.
+    ///
+    /// Attributes absent from `value` are not removed, unlike
+    /// [`put`](Entity::put). Use this only when the field set is preserved
+    /// across writes; [`keep`](Update::keep) preserves selected attributes
+    /// already stored.
+    pub fn merge<'a>(&'a self, value: &'a E) -> Update<'a, E> {
+        Update::merge(self, value)
+    }
+
+    /// Starts a [`Delete`] of the item at `primary`.
+    pub fn delete<'a>(&self, primary: impl Into<E::Key<'a>>) -> Delete<'_, E>
+    where
+        E: 'a,
+    {
+        Delete::new(self, document_key(E::parts(primary)))
     }
 
     /// Reads the whole table, following pagination to the end.

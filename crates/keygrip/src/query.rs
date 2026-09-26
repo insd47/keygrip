@@ -1,5 +1,6 @@
 use crate::types::Sort;
-use crate::{attr, item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema};
+use crate::{item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema};
+use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
 /// A typed transliteration of the DynamoDB Query API.
@@ -14,6 +15,7 @@ pub struct Query<'e, E: Schema> {
     index: Option<&'static Index>,
     sort: Option<Sort>,
     newest: bool,
+    consistent: bool,
 }
 
 pub fn new<E: Schema>(entity: &Entity<E>, partition: String) -> Query<'_, E> {
@@ -23,6 +25,7 @@ pub fn new<E: Schema>(entity: &Entity<E>, partition: String) -> Query<'_, E> {
         index: None,
         sort: None,
         newest: false,
+        consistent: false,
     }
 }
 
@@ -60,6 +63,17 @@ impl<E: Schema> Query<'_, E> {
         self
     }
 
+    /// Reads with strong consistency, so the results reflect every write
+    /// that succeeded before the query.
+    ///
+    /// Global secondary indexes do not support consistent reads; combined
+    /// with [`index`](Self::index), the query fails with
+    /// [`Error::Invalid`] before it is sent.
+    pub fn consistent(mut self) -> Self {
+        self.consistent = true;
+        self
+    }
+
     /// Runs the query and returns one page of at most `limit` items.
     ///
     /// Pass the previous page's [`cursor`](Page::cursor) to resume.
@@ -86,6 +100,12 @@ impl<E: Schema> Query<'_, E> {
     }
 
     async fn send(&self, cursor: Option<Cursor>, limit: Option<i32>) -> Result<Page<E>> {
+        if self.consistent && self.index.is_some() {
+            return Err(Error::Invalid(
+                "a global secondary index does not support consistent reads".into(),
+            ));
+        }
+
         let partition = self.index.map_or(E::PARTITION, |index| index.partition);
         let sort = self.index.map_or(E::SORT, |index| index.sort);
         let mut expression = "#partition = :partition".to_string();
@@ -97,28 +117,32 @@ impl<E: Schema> Query<'_, E> {
             .set_index_name(self.index.map(|index| index.name.to_string()))
             .key_condition_expression(&expression)
             .expression_attribute_names("#partition", partition)
-            .expression_attribute_values(":partition", attr::s(&self.partition))
+            .expression_attribute_values(":partition", AttributeValue::S(self.partition.clone()))
             .scan_index_forward(!self.newest)
+            .consistent_read(self.consistent)
             .set_exclusive_start_key(cursor)
             .set_limit(limit);
 
         if let Some(condition) = &self.sort {
             let sort = sort.ok_or_else(|| {
-                Error::Unavailable("A sort condition was used without a sort key.".into())
+                Error::Invalid("a sort condition was used without a sort key".into())
             })?;
 
             match condition {
                 Sort::Prefix(prefix) => {
                     expression.push_str(" AND begins_with(#sort, :sort)");
-                    query = query.expression_attribute_values(":sort", attr::s(prefix));
+                    query = query
+                        .expression_attribute_values(":sort", AttributeValue::S(prefix.clone()));
                 }
                 Sort::Equal(value) => {
                     expression.push_str(" AND #sort = :sort");
-                    query = query.expression_attribute_values(":sort", attr::s(value));
+                    query = query
+                        .expression_attribute_values(":sort", AttributeValue::S(value.clone()));
                 }
                 Sort::After(value) => {
                     expression.push_str(" AND #sort > :sort");
-                    query = query.expression_attribute_values(":sort", attr::s(value));
+                    query = query
+                        .expression_attribute_values(":sort", AttributeValue::S(value.clone()));
                 }
             }
 
@@ -133,5 +157,38 @@ impl<E: Schema> Query<'_, E> {
             items: item::page(response.items)?,
             cursor: response.last_evaluated_key,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Entity, Error, Index};
+    use aws_sdk_dynamodb::config::BehaviorVersion;
+    use aws_sdk_dynamodb::{Client, Config};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, crate::Schema)]
+    #[entity(pk(owner), sk(id), index(name = "byId", pk(id)))]
+    struct RecordTable {
+        owner: String,
+        id: String,
+    }
+
+    #[tokio::test]
+    async fn rejects_consistent_index_queries_before_sending() {
+        let config = Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .build();
+        let records = Entity::<RecordTable>::new(&Client::from_conf(config), "Records");
+        let index: &'static Index = &RecordTable::BY_ID;
+        let error = records
+            .query("id")
+            .index(index)
+            .consistent()
+            .all()
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, Error::Invalid(detail) if detail.contains("consistent")));
     }
 }

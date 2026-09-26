@@ -1,4 +1,4 @@
-//! SDK error mapping helpers, for extension code that sends its own requests.
+//! SDK error mapping.
 
 use crate::Error;
 use aws_sdk_dynamodb::error::{ProvideErrorMetadata, SdkError};
@@ -13,19 +13,6 @@ where
         .as_service_error()
         .and_then(ProvideErrorMetadata::code)
         == Some("ConditionalCheckFailedException")
-}
-
-/// Maps a rejected condition to [`Error::Conflict`] with the given detail,
-/// and anything else to [`Error::Unavailable`].
-pub fn conflict<E, R>(error: SdkError<E, R>, detail: &'static str) -> Error
-where
-    E: ProvideErrorMetadata,
-{
-    if conditional(&error) {
-        Error::Conflict(detail)
-    } else {
-        unavailable(error)
-    }
 }
 
 /// Maps any displayable error to [`Error::Unavailable`].

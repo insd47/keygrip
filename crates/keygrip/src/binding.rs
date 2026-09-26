@@ -31,8 +31,3 @@ impl Bindings {
             })
     }
 }
-
-pub trait BoundExpression {
-    fn bindings(&self) -> &Bindings;
-    fn into_bindings(self) -> Bindings;
-}
