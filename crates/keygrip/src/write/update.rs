@@ -4,6 +4,7 @@ use crate::key::document_key;
 use crate::{item, Entity, Expression, Result, Schema};
 use aws_sdk_dynamodb::operation::update_item::builders::UpdateItemFluentBuilder;
 use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};
+use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 use std::future::{Future, IntoFuture};
 
@@ -138,6 +139,10 @@ impl<'a, E: Schema> Update<'a, E> {
                 None => Ok(None),
             }
         }
+    }
+
+    pub(crate) fn client(&self) -> &Client {
+        self.entity.client()
     }
 
     pub(crate) fn compile(self) -> Result<Compiled> {

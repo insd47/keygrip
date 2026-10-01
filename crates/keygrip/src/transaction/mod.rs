@@ -9,6 +9,8 @@ use aws_sdk_dynamodb::operation::transact_write_items::TransactWriteItemsError;
 use aws_sdk_dynamodb::types::{CancellationReason, TransactWriteItem};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
+use std::future::{Future, IntoFuture};
+use std::pin::Pin;
 
 const CONDITION_FAILED: &str = "ConditionalCheckFailed";
 
@@ -16,11 +18,13 @@ const CONDITION_FAILED: &str = "ConditionalCheckFailed";
 ///
 /// A transaction assembles the same [`Put`](crate::Put),
 /// [`Update`](crate::Update), and [`Delete`](crate::Delete) values that run
-/// on their own, conditions included. It holds no client;
-/// [`run`](Self::run) receives one. Condition rejection is a value, as for
-/// single writes: the [`Outcome`] says whether the transaction committed and
-/// which [`label`](Self::label)ed steps were rejected, so inserting an
-/// optional step never shifts the meaning of a cancellation:
+/// on their own, conditions included. Awaiting it sends the steps with the
+/// client of the first write's [`Entity`](crate::Entity), as single writes
+/// do; [`run`](Self::run) takes the client explicitly instead. Condition
+/// rejection is a value, as for single writes: the [`Outcome`] says whether
+/// the transaction committed and which [`label`](Self::label)ed steps were
+/// rejected, so inserting an optional step never shifts the meaning of a
+/// cancellation:
 ///
 /// ```no_run
 /// use aws_sdk_dynamodb::Client;
@@ -58,7 +62,6 @@ const CONDITION_FAILED: &str = "ConditionalCheckFailed";
 ///         )
 ///         .label("pointer")
 ///         .add(sessions.delete(previous))
-///         .run(client)
 ///         .await?;
 ///
 ///     if outcome.rejected("pointer") {
@@ -70,10 +73,13 @@ const CONDITION_FAILED: &str = "ConditionalCheckFailed";
 /// ```
 ///
 /// Each step's placeholders are isolated from every other step's, so they may
-/// be reused freely across steps.
+/// be reused freely across steps. DynamoDB commits a transaction within one
+/// account and region, so every write should come from entities sharing a
+/// client.
 #[derive(Debug, Default)]
-#[must_use = "a transaction does nothing until it is run"]
+#[must_use = "a transaction does nothing until it is awaited"]
 pub struct Transaction {
+    client: Option<Client>,
     items: Vec<TransactWriteItem>,
     labels: HashMap<&'static str, usize>,
     problem: Option<Error>,
@@ -91,7 +97,10 @@ impl Transaction {
     /// [`run`](Self::run).
     #[allow(clippy::should_implement_trait)] // a builder step, not arithmetic
     pub fn add(mut self, write: impl Into<Step>) -> Self {
-        match write.into().0 {
+        let Step { item, client } = write.into();
+        self.client.get_or_insert(client);
+
+        match item {
             Ok(item) => self.items.push(item),
             Err(error) => self.fail(error),
         }
@@ -123,9 +132,11 @@ impl Transaction {
         self
     }
 
-    /// Sends the steps as one atomic `TransactWriteItems` request.
+    /// Sends the steps as one atomic `TransactWriteItems` request through
+    /// `client`.
     ///
-    /// Resolves to an [`Outcome`] when DynamoDB either commits the steps or
+    /// Awaiting the transaction does the same with the client of its first
+    /// write. Resolves to an [`Outcome`] when DynamoDB either commits the steps or
     /// rejects at least one condition. Cancellations for any other reason —
     /// conflicting transactions, throttling — fail with
     /// [`Error::Unavailable`].
@@ -162,6 +173,20 @@ impl Transaction {
 
     fn fail(&mut self, error: Error) {
         self.problem.get_or_insert(error);
+    }
+}
+
+impl IntoFuture for Transaction {
+    type Output = Result<Outcome>;
+    type IntoFuture = Pin<Box<dyn Future<Output = Result<Outcome>> + Send>>;
+
+    fn into_future(mut self) -> Self::IntoFuture {
+        Box::pin(async move {
+            match self.client.take() {
+                Some(client) => self.run(&client).await,
+                None => Err(invalid("a transaction requires at least one step")),
+            }
+        })
     }
 }
 
@@ -306,6 +331,30 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(error, Error::Invalid(detail) if detail.contains("duplicate")));
+    }
+
+    #[tokio::test]
+    async fn awaits_with_the_first_write_client() {
+        let records = entity("Records");
+        let transaction = Transaction::new().add(records.delete("one"));
+
+        assert!(transaction.client.is_some());
+
+        let error = Transaction::new()
+            .add(records.delete("one"))
+            .label("pointer")
+            .label("again")
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, Error::Invalid(detail) if detail.contains("more than one label")));
+    }
+
+    #[tokio::test]
+    async fn rejects_awaiting_an_empty_transaction() {
+        let error = Transaction::new().await.unwrap_err();
+
+        assert!(matches!(error, Error::Invalid(detail) if detail.contains("at least one step")));
     }
 
     #[test]
