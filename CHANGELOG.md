@@ -1,9 +1,18 @@
 # Changelog
 
-## [0.4.0]
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.4.0](https://github.com/insd47/keygrip/releases/tag/v0.4.0) - 2026-09-26
 
 0.4 fills the gaps in the typed API so the extension toolkit can leave the public surface. Writes are values with one
 condition rule, and transactions assemble the same values.
+
+### Added
+
+- `Query::consistent` for strongly consistent queries (rejected with `Error::Invalid` on a GSI).
 
 ### Changed
 
@@ -16,10 +25,6 @@ condition rule, and transactions assemble the same values.
 - `Error::Invalid` holds failures that retrying cannot fix: conflicting placeholders, (de)serialization, unsupported
   combinations. `Error::Unavailable` is now transient failures only.
 - `Expression`, `Transaction`, and `Outcome` are exported from the crate root.
-
-### Added
-
-- `Query::consistent` for strongly consistent queries (rejected with `Error::Invalid` on a GSI).
 
 ### Removed
 
@@ -47,8 +52,10 @@ condition rule, and transactions assemble the same values.
 | `Error::Unavailable` on (de)serialization failures            | `Error::Invalid`                                                                                                                               |
 | `match` on `Error::Conflict(_)` (e.g. → HTTP 409)             | remove the arm; conflicts are the `bool`/`Outcome` at the call site. Add an `Error::Invalid(_)` arm                                            |
 
-## [0.3.3]
+## [0.3.3](https://github.com/insd47/keygrip/tree/df15df7) - 2026-07-19
 
-- Add `Entity::merge` for conditional whole-value updates with `if_not_exists` preservation and optional `ALL_NEW`
-  results through `fetch`.
-- Document that merge preserves attributes absent from the new value, unlike the full-replacement semantics of `store`.
+### Added
+
+- `Entity::merge` for conditional whole-value updates. It preserves selected attributes with `if_not_exists` and
+  returns the stored item (`ALL_NEW`) through `fetch`. Unlike the full replacement of `store`, a merge keeps attributes
+  absent from the new value.
