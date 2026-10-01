@@ -1,6 +1,6 @@
 use crate::key::document_key;
 use crate::query::SortCondition;
-use crate::{item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update};
+use crate::{item, request, Delete, Error, Expression, KeyPart, Merge, Put, Query, Result, Schema, Update};
 use aws_sdk_dynamodb::types::{AttributeValue, KeysAndAttributes};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
@@ -90,15 +90,15 @@ impl<E: Schema> Entity<E> {
         Update::expression(self, document_key(E::parts(primary)), expression)
     }
 
-    /// Starts an [`Update`] that sets every serialized non-key attribute of
+    /// Starts a [`Merge`] that sets every serialized non-key attribute of
     /// `value`.
     ///
     /// Attributes absent from `value` are not removed, unlike
     /// [`put`](Entity::put). Use this only when the field set is preserved
-    /// across writes; [`keep`](Update::keep) preserves selected attributes
+    /// across writes; [`keep`](Merge::keep) preserves selected attributes
     /// already stored.
-    pub fn merge<'a>(&'a self, value: &'a E) -> Update<'a, E> {
-        Update::merge(self, value)
+    pub fn merge<'a>(&'a self, value: &'a E) -> Merge<'a, E> {
+        Merge::new(self, value)
     }
 
     /// Starts a [`Delete`] of the item at `primary`.

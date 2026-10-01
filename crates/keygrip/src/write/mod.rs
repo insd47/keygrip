@@ -1,4 +1,4 @@
-//! Single-item writes: [`Put`], [`Update`], and [`Delete`].
+//! Single-item writes: [`Put`], [`Update`], [`Merge`], and [`Delete`].
 //!
 //! Every write is a value built from an [`Entity`](crate::Entity), optionally
 //! guarded by one [`Condition`], and executed by awaiting it. A rejected
@@ -9,11 +9,13 @@
 
 mod condition;
 mod delete;
+mod merge;
 mod put;
 mod update;
 
 pub use condition::Condition;
 pub use delete::Delete;
+pub use merge::Merge;
 pub use put::Put;
 pub use update::Update;
 

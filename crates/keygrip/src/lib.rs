@@ -29,7 +29,7 @@
 //!
 //! Writes are values: [`Entity::put`], [`update`](Entity::update),
 //! [`merge`](Entity::merge), and [`delete`](Entity::delete) return a [`Put`],
-//! [`Update`], or [`Delete`] that runs when awaited, optionally guarded by
+//! [`Update`], [`Merge`], or [`Delete`] that runs when awaited, optionally guarded by
 //! one [`Condition`]. A rejected condition resolves to `false` rather than an
 //! error, and the same values assemble into an atomic [`Transaction`]:
 //!
@@ -98,4 +98,4 @@ pub use transaction::{Outcome, Transaction};
 #[cfg(feature = "dynamodb")]
 pub use types::{Cursor, Page};
 #[cfg(feature = "dynamodb")]
-pub use write::{Condition, Delete, Put, Update};
+pub use write::{Condition, Delete, Merge, Put, Update};
