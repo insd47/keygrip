@@ -76,7 +76,9 @@ impl<'e, E: Schema> Query<'e, E> {
     /// Runs the query and returns one page of at most `limit` items.
     ///
     /// Pass the previous page's [`cursor`](Page::cursor) to resume.
-    pub async fn page(self, cursor: Option<Cursor>, limit: i32) -> Result<Page<E>> {
+    pub async fn page(self, cursor: Option<Cursor>, limit: u32) -> Result<Page<E>> {
+        let limit = i32::try_from(limit).unwrap_or(i32::MAX);
+
         self.send(cursor, Some(limit)).await
     }
 
