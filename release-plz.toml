@@ -1,6 +1,6 @@
 [workspace]
 release_always = false
-release_commits = "^(feat|fix)|^[a-z]+(\\(.+\\))?!:"
+release_commits = "^(feat|fix|perf)|^[a-z]+(\\(.+\\))?!:"
 pr_labels = ["release"]
 
 [[package]]
