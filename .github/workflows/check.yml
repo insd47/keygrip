@@ -26,4 +26,5 @@ jobs:
         run: |
           cargo fmt --all --check
           cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo clippy -p keygrip --no-default-features --all-targets -- -D warnings
           cargo test --workspace --all-features
