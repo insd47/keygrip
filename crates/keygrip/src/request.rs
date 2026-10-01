@@ -9,10 +9,7 @@ pub fn conditional<E, R>(error: &SdkError<E, R>) -> bool
 where
     E: ProvideErrorMetadata,
 {
-    error
-        .as_service_error()
-        .and_then(ProvideErrorMetadata::code)
-        == Some("ConditionalCheckFailedException")
+    error.as_service_error().and_then(ProvideErrorMetadata::code) == Some("ConditionalCheckFailedException")
 }
 
 /// Maps any displayable error to [`Error::Unavailable`].

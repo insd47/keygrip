@@ -40,12 +40,8 @@ impl Condition {
 
     fn resolve<E: Schema>(self) -> Expression {
         match self.0 {
-            Kind::Absent => {
-                Expression::new(format!("attribute_not_exists({KEY})")).name(KEY, E::PARTITION)
-            }
-            Kind::Exists => {
-                Expression::new(format!("attribute_exists({KEY})")).name(KEY, E::PARTITION)
-            }
+            Kind::Absent => Expression::new(format!("attribute_not_exists({KEY})")).name(KEY, E::PARTITION),
+            Kind::Exists => Expression::new(format!("attribute_exists({KEY})")).name(KEY, E::PARTITION),
             Kind::Expression(expression) => expression,
         }
     }

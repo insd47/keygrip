@@ -1,9 +1,7 @@
 use super::query;
 use crate::key::document_key;
 use crate::query::SortCondition;
-use crate::{
-    item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update,
-};
+use crate::{item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update};
 use aws_sdk_dynamodb::types::{AttributeValue, KeysAndAttributes};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
@@ -86,11 +84,7 @@ impl<E: Schema> Entity<E> {
     }
 
     /// Starts an [`Update`] of the item at `primary` with `expression`.
-    pub fn update<'a>(
-        &self,
-        primary: impl Into<E::Key<'a>>,
-        expression: Expression,
-    ) -> Update<'_, E>
+    pub fn update<'a>(&self, primary: impl Into<E::Key<'a>>, expression: Expression) -> Update<'_, E>
     where
         E: 'a,
     {
@@ -126,9 +120,8 @@ impl<E: Schema> Entity<E> {
         let mut cursor = None;
         let space = match SortCondition::new(E::SPACE, None)? {
             Some(condition) => {
-                let sort = E::SORT.ok_or_else(|| {
-                    Error::Invalid("a sort key space was declared without a sort key".into())
-                })?;
+                let sort =
+                    E::SORT.ok_or_else(|| Error::Invalid("a sort key space was declared without a sort key".into()))?;
 
                 Some((condition, sort))
             }
@@ -148,10 +141,7 @@ impl<E: Schema> Entity<E> {
                     .expression_attribute_names("#sort", *sort);
 
                 for (placeholder, value) in &condition.values {
-                    scan = scan.expression_attribute_values(
-                        *placeholder,
-                        AttributeValue::S(value.clone()),
-                    );
+                    scan = scan.expression_attribute_values(*placeholder, AttributeValue::S(value.clone()));
                 }
             }
 
@@ -204,15 +194,10 @@ impl<E: Schema> Entity<E> {
                 .is_some_and(|tables| tables.values().any(|table| !table.keys().is_empty()));
 
             if incomplete {
-                return Err(Error::Unavailable(format!(
-                    "{} batch read was not completed.",
-                    E::NAME
-                )));
+                return Err(Error::Unavailable(format!("{} batch read was not completed.", E::NAME)));
             }
 
-            let documents = response
-                .responses
-                .and_then(|mut tables| tables.remove(&self.name));
+            let documents = response.responses.and_then(|mut tables| tables.remove(&self.name));
             entities.extend(item::page(documents)?);
         }
 

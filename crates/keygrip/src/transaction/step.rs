@@ -20,24 +20,18 @@ impl<E: Schema> From<Put<'_, E>> for Step {
 
         Self::new(
             client,
-            write.compile().and_then(
-                |put::Compiled {
-                     table,
-                     item,
-                     clause,
-                 }| {
-                    let put = types::Put::builder()
-                        .table_name(table)
-                        .set_item(Some(item))
-                        .set_condition_expression(clause.condition)
-                        .set_expression_attribute_names(clause.names)
-                        .set_expression_attribute_values(clause.values)
-                        .build()
-                        .map_err(invalid)?;
+            write.compile().and_then(|put::Compiled { table, item, clause }| {
+                let put = types::Put::builder()
+                    .table_name(table)
+                    .set_item(Some(item))
+                    .set_condition_expression(clause.condition)
+                    .set_expression_attribute_names(clause.names)
+                    .set_expression_attribute_values(clause.values)
+                    .build()
+                    .map_err(invalid)?;
 
-                    Ok(TransactWriteItem::builder().put(put).build())
-                },
-            ),
+                Ok(TransactWriteItem::builder().put(put).build())
+            }),
         )
     }
 }
@@ -78,20 +72,18 @@ impl<E: Schema> From<Delete<'_, E>> for Step {
 
         Self::new(
             client,
-            write
-                .compile()
-                .and_then(|delete::Compiled { table, key, clause }| {
-                    let delete = types::Delete::builder()
-                        .table_name(table)
-                        .set_key(Some(key))
-                        .set_condition_expression(clause.condition)
-                        .set_expression_attribute_names(clause.names)
-                        .set_expression_attribute_values(clause.values)
-                        .build()
-                        .map_err(invalid)?;
+            write.compile().and_then(|delete::Compiled { table, key, clause }| {
+                let delete = types::Delete::builder()
+                    .table_name(table)
+                    .set_key(Some(key))
+                    .set_condition_expression(clause.condition)
+                    .set_expression_attribute_names(clause.names)
+                    .set_expression_attribute_values(clause.values)
+                    .build()
+                    .map_err(invalid)?;
 
-                    Ok(TransactWriteItem::builder().delete(delete).build())
-                }),
+                Ok(TransactWriteItem::builder().delete(delete).build())
+            }),
         )
     }
 }

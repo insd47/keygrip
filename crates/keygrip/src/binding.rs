@@ -25,9 +25,7 @@ impl Bindings {
             .keys()
             .find(|placeholder| self.values.contains_key(*placeholder))
             .map(|placeholder| {
-                format!(
-                    "expression value placeholder {placeholder} is bound by both the update and condition"
-                )
+                format!("expression value placeholder {placeholder} is bound by both the update and condition")
             })
     }
 }
