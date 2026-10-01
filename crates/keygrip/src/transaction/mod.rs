@@ -20,7 +20,7 @@ const CONDITION_FAILED: &str = "ConditionalCheckFailed";
 /// [`Update`](crate::Update), and [`Delete`](crate::Delete) values that run
 /// on their own, conditions included. Awaiting it sends the steps with the
 /// client of the first write's [`Entity`](crate::Entity), as single writes
-/// do; [`run`](Self::run) takes the client explicitly instead. Condition
+/// do. Condition
 /// rejection is a value, as for single writes: the [`Outcome`] says whether
 /// the transaction committed and which [`label`](Self::label)ed steps were
 /// rejected, so inserting an optional step never shifts the meaning of a
@@ -130,22 +130,23 @@ impl Transaction {
         self
     }
 
-    /// Sends the steps as one atomic `TransactWriteItems` request through
-    /// `client`.
+    /// Sends the steps as one atomic `TransactWriteItems` request through the
+    /// client of the first write.
     ///
-    /// Awaiting the transaction does the same with the client of its first
-    /// write. Resolves to an [`Outcome`] when DynamoDB either commits the steps or
+    /// Awaiting the transaction does the same. Resolves to an [`Outcome`] when
+    /// DynamoDB either commits the steps or
     /// rejects at least one condition. Cancellations for any other reason —
     /// conflicting transactions, throttling — fail with
     /// [`Error::Unavailable`].
-    pub async fn run(self, client: &Client) -> Result<Outcome> {
+    pub async fn run(self) -> Result<Outcome> {
         if let Some(problem) = self.problem {
             return Err(problem);
         }
 
-        if self.items.is_empty() {
+        // Every step brings its client, so a transaction without one has no steps.
+        let Some(client) = self.client else {
             return Err(invalid("a transaction requires at least one step"));
-        }
+        };
 
         let result = client
             .transact_write_items()
@@ -174,13 +175,8 @@ impl IntoFuture for Transaction {
     type Output = Result<Outcome>;
     type IntoFuture = Pin<Box<dyn Future<Output = Result<Outcome>> + Send>>;
 
-    fn into_future(mut self) -> Self::IntoFuture {
-        Box::pin(async move {
-            match self.client.take() {
-                Some(client) => self.run(&client).await,
-                None => Err(invalid("a transaction requires at least one step")),
-            }
-        })
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(self.run())
     }
 }
 
@@ -295,7 +291,7 @@ mod tests {
                     .update("one", Expression::new("SET value = :value").value(":value", "next"))
                     .when(Expression::new("value = :value").value(":value", "previous")),
             )
-            .run(&client())
+            .run()
             .await
             .unwrap_err();
 
@@ -310,7 +306,7 @@ mod tests {
             .label("pointer")
             .add(records.delete("two"))
             .label("pointer")
-            .run(&client())
+            .run()
             .await
             .unwrap_err();
 

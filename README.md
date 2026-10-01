@@ -192,8 +192,7 @@ if outcome.rejected("pointer") {
 }
 ```
 
-Awaiting a transaction sends it with the client of its first write's entity; `run(&client)` takes the client
-explicitly. Like single writes, rejected conditions resolve to an `Outcome` (`committed()`, `rejected(label)`) rather
+Awaiting a transaction (or calling `run()`) sends it with the client of its first write's entity. Like single writes, rejected conditions resolve to an `Outcome` (`committed()`, `rejected(label)`) rather
 than an error; cancellations for any other reason fail with `Error::Unavailable`. Labels must be unique; placeholders may be
 reused freely by different steps.
 
