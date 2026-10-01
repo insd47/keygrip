@@ -21,21 +21,17 @@ pub trait Schema: Serialize + DeserializeOwned {
     /// table. A manual implementation that sets it must encode its sort keys
     /// to match.
     const SPACE: Option<SortSpace> = None;
-    /// Borrowed key-part bundle accepted by lookups (derive: [`Key<N>`] where
-    /// `N` counts every `pk`/`sk` field).
+    /// Key-part bundle accepted by lookups (derive: [`Key<N>`] where `N`
+    /// counts every `pk`/`sk` field).
     ///
     /// [`Key<N>`]: Key
-    type Key<'a>
-    where
-        Self: 'a;
+    type Key;
 
     /// Resolves key parts into named partition/sort values, applying any
     /// composite encoding.
-    fn parts<'a>(key: impl Into<Self::Key<'a>>) -> Parts
-    where
-        Self: 'a;
+    fn parts(key: impl Into<Self::Key>) -> Parts;
     /// Returns this instance's own primary key parts.
-    fn primary(&self) -> Self::Key<'_>;
+    fn primary(&self) -> Self::Key;
 }
 
 /// An ordered bundle of `N` key-part strings.

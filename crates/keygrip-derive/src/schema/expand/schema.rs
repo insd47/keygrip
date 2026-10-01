@@ -30,17 +30,14 @@ pub fn schema(name: &Ident, attr: &Schema) -> TokenStream {
             const PARTITION: &'static str = #partition;
             const SORT: ::core::option::Option<&'static str> = #sort;
             #space
-            type Key<'a> = #keygrip::Key<#key_count>;
+            type Key = #keygrip::Key<#key_count>;
 
-            fn parts<'a>(key: impl ::core::convert::Into<Self::Key<'a>>) -> #keygrip::Parts
-            where
-                Self: 'a,
-            {
+            fn parts(key: impl ::core::convert::Into<Self::Key>) -> #keygrip::Parts {
                 let [#(#bindings),*] = key.into().into_values();
                 #parts
             }
 
-            fn primary(&self) -> Self::Key<'_> {
+            fn primary(&self) -> Self::Key {
                 #keygrip::Key::from(#value)
             }
         }
