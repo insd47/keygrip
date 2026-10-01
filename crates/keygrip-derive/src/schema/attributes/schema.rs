@@ -19,10 +19,7 @@ impl Schema {
             .collect::<Vec<_>>();
 
         if attrs.len() != 1 {
-            return Err(Error::new(
-                input.span(),
-                "Schema requires one #[entity(...)] attribute",
-            ));
+            return Err(Error::new(input.span(), "Schema requires one #[entity(...)] attribute"));
         }
 
         let mut schema = Self {

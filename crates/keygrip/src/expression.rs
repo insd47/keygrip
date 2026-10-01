@@ -50,11 +50,7 @@ impl Expression {
     ///
     /// A value that fails to serialize surfaces as [`Error::Invalid`] when
     /// the write runs.
-    pub fn value<T: Serialize + ?Sized>(
-        mut self,
-        placeholder: impl Into<String>,
-        value: &T,
-    ) -> Self {
+    pub fn value<T: Serialize + ?Sized>(mut self, placeholder: impl Into<String>, value: &T) -> Self {
         let placeholder = placeholder.into();
 
         match serde_dynamo::to_attribute_value(value) {
@@ -62,9 +58,8 @@ impl Expression {
                 self.bindings.values.insert(placeholder, value);
             }
             Err(error) => {
-                self.problem.get_or_insert_with(|| {
-                    format!("value placeholder {placeholder} does not serialize: {error}")
-                });
+                self.problem
+                    .get_or_insert_with(|| format!("value placeholder {placeholder} does not serialize: {error}"));
             }
         }
 
@@ -104,9 +99,7 @@ mod tests {
             .unwrap();
 
         assert!(matches!(&bindings.values[":score"], AttributeValue::N(value) if value == "3"));
-        assert!(
-            matches!(&bindings.values[":tags"], AttributeValue::L(values) if values.len() == 1)
-        );
+        assert!(matches!(&bindings.values[":tags"], AttributeValue::L(values) if values.len() == 1));
     }
 
     #[test]

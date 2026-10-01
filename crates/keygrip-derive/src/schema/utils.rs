@@ -29,17 +29,11 @@ pub fn sort(meta: syn::meta::ParseNestedMeta<'_>) -> syn::Result<(Vec<LitStr>, V
             let literal: LitStr = content.parse()?;
 
             if !fields.is_empty() {
-                return Err(Error::new(
-                    literal.span(),
-                    "string literals must lead sk(...)",
-                ));
+                return Err(Error::new(literal.span(), "string literals must lead sk(...)"));
             }
 
             let value = literal.value();
-            let valid = !value.is_empty()
-                && value
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+            let valid = !value.is_empty() && value.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
 
             if !valid {
                 return Err(Error::new(

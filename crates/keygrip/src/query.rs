@@ -1,7 +1,5 @@
 use crate::types::Sort;
-use crate::{
-    item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema, SortSpace,
-};
+use crate::{item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema, SortSpace};
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
@@ -129,9 +127,7 @@ impl<E: Schema> Query<'_, E> {
         let space = self.index.map_or(E::SPACE, |_| None);
 
         if let Some(condition) = SortCondition::new(space, self.sort.as_ref())? {
-            let sort = sort.ok_or_else(|| {
-                Error::Invalid("a sort condition was used without a sort key".into())
-            })?;
+            let sort = sort.ok_or_else(|| Error::Invalid("a sort condition was used without a sort key".into()))?;
 
             expression.push_str(" AND ");
             expression.push_str(&condition.expression);
@@ -184,10 +180,7 @@ impl SortCondition {
                     // that ends the space.
                     Some(Sort::After(value)) => Self {
                         expression: "#sort BETWEEN :low AND :high".into(),
-                        values: vec![
-                            (":low", format!("{base}{value}\u{0}")),
-                            (":high", format!("{space}$")),
-                        ],
+                        values: vec![(":low", format!("{base}{value}\u{0}")), (":high", format!("{space}$"))],
                     },
                 }
             }
@@ -236,18 +229,14 @@ mod tests {
     #[test]
     fn keeps_queries_inside_a_prefix_space() {
         let space = Some(SortSpace::Prefix("run"));
-        let condition =
-            |sort: Option<Sort>| SortCondition::new(space, sort.as_ref()).unwrap().unwrap();
+        let condition = |sort: Option<Sort>| SortCondition::new(space, sort.as_ref()).unwrap().unwrap();
 
         assert_eq!(condition(None).values, [(":sort", "run#".into())]);
         assert_eq!(
             condition(Some(Sort::Prefix("p1#".into()))).values,
             [(":sort", "run#p1#".into())]
         );
-        assert_eq!(
-            condition(Some(Sort::Equal("p1#a".into()))).expression,
-            "#sort = :sort"
-        );
+        assert_eq!(condition(Some(Sort::Equal("p1#a".into()))).expression, "#sort = :sort");
 
         let after = condition(Some(Sort::After("p1#a".into())));
 
@@ -283,18 +272,10 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_consistent_index_queries_before_sending() {
-        let config = Config::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .build();
+        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
         let records = Entity::<RecordTable>::new(&Client::from_conf(config), "Records");
         let index: &'static Index = &RecordTable::BY_ID;
-        let error = records
-            .query("id")
-            .index(index)
-            .consistent()
-            .all()
-            .await
-            .unwrap_err();
+        let error = records.query("id").index(index).consistent().all().await.unwrap_err();
 
         assert!(matches!(error, Error::Invalid(detail) if detail.contains("consistent")));
     }

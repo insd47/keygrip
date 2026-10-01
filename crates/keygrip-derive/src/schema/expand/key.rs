@@ -37,10 +37,7 @@ pub fn primary(key: &Key, keygrip: &TokenStream) -> Primary {
 
         quote!(#keygrip::Parts::one(#partition, #partition_value))
     };
-    let values = fields
-        .into_iter()
-        .map(|field| quote!(&self.#field))
-        .collect::<Vec<_>>();
+    let values = fields.into_iter().map(|field| quote!(&self.#field)).collect::<Vec<_>>();
     let value = tuple(&values);
     let space = space(key, keygrip);
 

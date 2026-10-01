@@ -80,11 +80,7 @@ impl<'a, E: Schema> Put<'a, E> {
 
     fn request(self) -> Result<PutItemFluentBuilder> {
         let entity = self.entity;
-        let Compiled {
-            table,
-            item,
-            clause,
-        } = self.compile()?;
+        let Compiled { table, item, clause } = self.compile()?;
 
         Ok(entity
             .client()

@@ -122,9 +122,7 @@ impl Transaction {
         if self.labels.contains_key(label) {
             self.fail(invalid(format!("duplicate transaction label {label}")));
         } else if self.labels.values().any(|&index| index == last) {
-            self.fail(invalid(
-                "a transaction step cannot have more than one label",
-            ));
+            self.fail(invalid("a transaction step cannot have more than one label"));
         } else {
             self.labels.insert(label, last);
         }
@@ -158,12 +156,8 @@ impl Transaction {
             return Ok(Outcome { rejected: None });
         };
 
-        if let Some(TransactWriteItemsError::TransactionCanceledException(cancellation)) =
-            error.as_service_error()
-        {
-            if let Some(outcome) =
-                Outcome::canceled(cancellation.cancellation_reasons(), &self.labels)
-            {
+        if let Some(TransactWriteItemsError::TransactionCanceledException(cancellation)) = error.as_service_error() {
+            if let Some(outcome) = Outcome::canceled(cancellation.cancellation_reasons(), &self.labels) {
                 return Ok(outcome);
             }
         }
@@ -210,16 +204,11 @@ impl Outcome {
     /// Unlabeled steps cannot be interrogated; check
     /// [`committed`](Self::committed) instead.
     pub fn rejected(&self, label: &str) -> bool {
-        self.rejected
-            .as_ref()
-            .is_some_and(|labels| labels.contains(&label))
+        self.rejected.as_ref().is_some_and(|labels| labels.contains(&label))
     }
 
     /// An outcome for a cancellation that rejected at least one condition.
-    fn canceled(
-        reasons: &[CancellationReason],
-        labels: &HashMap<&'static str, usize>,
-    ) -> Option<Self> {
+    fn canceled(reasons: &[CancellationReason], labels: &HashMap<&'static str, usize>) -> Option<Self> {
         let rejected = reasons
             .iter()
             .map(|reason| reason.code() == Some(CONDITION_FAILED))
@@ -235,9 +224,7 @@ impl Outcome {
             .map(|(&label, _)| label)
             .collect();
 
-        Some(Self {
-            rejected: Some(labels),
-        })
+        Some(Self { rejected: Some(labels) })
     }
 }
 
@@ -305,10 +292,7 @@ mod tests {
         let error = Transaction::new()
             .add(
                 records
-                    .update(
-                        "one",
-                        Expression::new("SET value = :value").value(":value", "next"),
-                    )
+                    .update("one", Expression::new("SET value = :value").value(":value", "next"))
                     .when(Expression::new("value = :value").value(":value", "previous")),
             )
             .run(&client())
@@ -417,9 +401,7 @@ mod tests {
     }
 
     fn client() -> Client {
-        let config = Config::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .build();
+        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
 
         Client::from_conf(config)
     }

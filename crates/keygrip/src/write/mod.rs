@@ -40,10 +40,7 @@ pub(crate) struct Clause {
 
 /// Merges an optional update expression with an optional condition,
 /// rejecting placeholders bound by both.
-fn clause(
-    update: Option<Bindings>,
-    condition: Option<Expression>,
-) -> Result<(Option<String>, Clause)> {
+fn clause(update: Option<Bindings>, condition: Option<Expression>) -> Result<(Option<String>, Clause)> {
     let condition = condition.map(Expression::compile).transpose()?;
 
     if let (Some(update), Some(condition)) = (&update, &condition) {

@@ -18,9 +18,6 @@ fn validate(input: &DeriveInput) -> syn::Result<()> {
     match &input.data {
         Data::Struct(data) if matches!(data.fields, Fields::Named(_)) => Ok(()),
         Data::Struct(_) => Err(Error::new(input.span(), "Schema requires named fields")),
-        _ => Err(Error::new(
-            input.span(),
-            "Schema can only be derived for structs",
-        )),
+        _ => Err(Error::new(input.span(), "Schema can only be derived for structs")),
     }
 }

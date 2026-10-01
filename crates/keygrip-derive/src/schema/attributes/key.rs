@@ -13,8 +13,7 @@ pub struct Key {
 
 impl Key {
     pub fn names(&self) -> Names {
-        let composite =
-            self.partition.len() > 1 || self.sort.len() > 1 || !self.literals.is_empty();
+        let composite = self.partition.len() > 1 || self.sort.len() > 1 || !self.literals.is_empty();
         let partition = if composite {
             "pk".into()
         } else {

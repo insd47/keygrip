@@ -201,11 +201,7 @@ impl<'a, E: Schema> IntoFuture for Update<'a, E> {
 
 /// Compiles a whole value into `SET` assignments for every serialized
 /// non-key attribute, in attribute-name order.
-fn merge<E: Schema>(
-    value: &E,
-    key: &HashMap<String, AttributeValue>,
-    keep: &[String],
-) -> Result<Bindings> {
+fn merge<E: Schema>(value: &E, key: &HashMap<String, AttributeValue>, keep: &[String]) -> Result<Bindings> {
     let mut document = item::to(value)?;
 
     for attribute in key.keys() {
@@ -377,11 +373,7 @@ mod tests {
             id: "one".into(),
             active: true,
         };
-        let put = records
-            .put(&record)
-            .when(Condition::absent())
-            .compile()
-            .unwrap();
+        let put = records.put(&record).when(Condition::absent()).compile().unwrap();
         let names = put.clause.names.unwrap();
 
         assert_eq!(put.table, "Records");
@@ -430,10 +422,7 @@ mod tests {
         let update = input.get_update_expression().as_deref();
         let names = input.get_expression_attribute_names().as_ref().unwrap();
 
-        assert_eq!(
-            update,
-            Some("SET #m0 = :m0, #m1 = :m1, #m2 = :m2, #m3 = :m3")
-        );
+        assert_eq!(update, Some("SET #m0 = :m0, #m1 = :m1, #m2 = :m2, #m3 = :m3"));
         assert_eq!(names["#m0"], "createdAt");
         assert_eq!(names["#m1"], "id");
         assert_eq!(names["#m2"], "score");
@@ -454,9 +443,7 @@ mod tests {
 
         assert_eq!(
             update,
-            Some(
-                "SET #m0 = if_not_exists(#m0, :m0), #m1 = if_not_exists(#m1, :m1), #m2 = :m2, #m3 = :m3"
-            )
+            Some("SET #m0 = if_not_exists(#m0, :m0), #m1 = if_not_exists(#m1, :m1), #m2 = :m2, #m3 = :m3")
         );
     }
 
@@ -471,9 +458,7 @@ mod tests {
 
         assert_eq!(key["userId"].as_s().unwrap(), "user");
         assert_eq!(key["problemId"].as_s().unwrap(), "problem");
-        assert!(!names
-            .values()
-            .any(|name| name == "userId" || name == "problemId"));
+        assert!(!names.values().any(|name| name == "userId" || name == "problemId"));
     }
 
     #[test]
@@ -522,12 +507,7 @@ mod tests {
     fn rejects_unknown_merge_keep_attributes() {
         let submissions = submission_entity();
         let submission = submission();
-        let error = submissions
-            .merge(&submission)
-            .keep("missing")
-            .request()
-            .err()
-            .unwrap();
+        let error = submissions.merge(&submission).keep("missing").request().err().unwrap();
 
         assert!(error.to_string().contains("unknown merge keep attribute"));
     }
@@ -548,10 +528,7 @@ mod tests {
         let request = submissions.merge(&submission).fetch_request().unwrap();
         let input = request.as_input();
 
-        assert_eq!(
-            input.get_return_values().as_ref(),
-            Some(&ReturnValue::AllNew)
-        );
+        assert_eq!(input.get_return_values().as_ref(), Some(&ReturnValue::AllNew));
     }
 
     #[test]
@@ -560,10 +537,7 @@ mod tests {
         let request = update(&records).fetch_request().unwrap();
         let input = request.as_input();
 
-        assert_eq!(
-            input.get_return_values().as_ref(),
-            Some(&ReturnValue::AllNew)
-        );
+        assert_eq!(input.get_return_values().as_ref(), Some(&ReturnValue::AllNew));
     }
 
     fn update(records: &Entity<RecordTable>) -> Update<'_, RecordTable> {
@@ -574,27 +548,21 @@ mod tests {
     }
 
     fn entity() -> Entity<RecordTable> {
-        let config = Config::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .build();
+        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
         let client = Client::from_conf(config);
 
         Entity::new(&client, "Records")
     }
 
     fn submission_entity() -> Entity<SubmissionTable> {
-        let config = Config::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .build();
+        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
         let client = Client::from_conf(config);
 
         Entity::new(&client, "Submissions")
     }
 
     fn key_only_entity() -> Entity<KeyOnlyTable> {
-        let config = Config::builder()
-            .behavior_version(BehaviorVersion::latest())
-            .build();
+        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
         let client = Client::from_conf(config);
 
         Entity::new(&client, "Keys")

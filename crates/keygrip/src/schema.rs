@@ -157,8 +157,8 @@ impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized, C: KeyPart + ?Sized> From<(&A, &B
     }
 }
 
-impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized, C: KeyPart + ?Sized, D: KeyPart + ?Sized>
-    From<(&A, &B, &C, &D)> for Key<4>
+impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized, C: KeyPart + ?Sized, D: KeyPart + ?Sized> From<(&A, &B, &C, &D)>
+    for Key<4>
 {
     fn from((a, b, c, d): (&A, &B, &C, &D)) -> Self {
         Self([a.part(), b.part(), c.part(), d.part()])
@@ -220,10 +220,7 @@ mod tests {
         assert_eq!(GateTable::SPACE, Some(SortSpace::Exact("gate")));
         assert_eq!(GateTable::PARTITION, "pk");
         assert_eq!(GateTable::SORT, Some("sk"));
-        assert_eq!(
-            GateTable::parts("user"),
-            Parts::two("pk", "user", "sk", "gate")
-        );
+        assert_eq!(GateTable::parts("user"), Parts::two("pk", "user", "sk", "gate"));
         assert_eq!(GateTable::parts(gate.primary()), GateTable::parts("user"));
     }
 

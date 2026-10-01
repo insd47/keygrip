@@ -7,9 +7,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 /// Deserializes a response's item list, tolerating its absence.
-pub fn page<E: DeserializeOwned>(
-    items: Option<Vec<HashMap<String, AttributeValue>>>,
-) -> Result<Vec<E>> {
+pub fn page<E: DeserializeOwned>(items: Option<Vec<HashMap<String, AttributeValue>>>) -> Result<Vec<E>> {
     items.unwrap_or_default().into_iter().map(from).collect()
 }
 
@@ -19,9 +17,7 @@ pub fn from<T: DeserializeOwned>(item: HashMap<String, AttributeValue>) -> Resul
 }
 
 /// Deserializes an optional DynamoDB item.
-pub fn option<T: DeserializeOwned>(
-    item: Option<HashMap<String, AttributeValue>>,
-) -> Result<Option<T>> {
+pub fn option<T: DeserializeOwned>(item: Option<HashMap<String, AttributeValue>>) -> Result<Option<T>> {
     item.map(from).transpose()
 }
 
