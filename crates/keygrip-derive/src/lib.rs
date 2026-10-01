@@ -15,7 +15,11 @@ mod schema;
 /// # Attribute grammar
 ///
 /// - `pk(field, …)` — required; the field(s) composing the partition key.
-/// - `sk(field, …)` — optional; the field(s) composing the sort key.
+/// - `sk(field, …)` — optional; the field(s) composing the sort key. Leading
+///   string literals (`sk("run", problem_id, id)`, or `sk("gate")` alone) are
+///   fixed parts that put the schema in its own `keygrip::SortSpace`, so
+///   several item shapes can share one table. Literals are ASCII letters,
+///   digits, `_`, or `-`, and only lead the list.
 /// - `index(name = "…", pk(…), sk(…))` — repeatable; declares a global
 ///   secondary index and emits a `keygrip::Index` constant named after the
 ///   index in SHOUTY_SNAKE_CASE (`byId` → `BY_ID`).
@@ -27,9 +31,12 @@ mod schema;
 /// - `impl keygrip::Schema`: attribute names, `Key<N>` (one slot per key
 ///   field), `parts`, and `primary`.
 /// - Attribute naming: a single-field key uses the field's camelCase name
-///   (`user_id` → `userId`); once any component is composite, the synthetic
-///   names `pk`/`sk` are used and members are joined with `#` through
-///   `keygrip::KeyPart`.
+///   (`user_id` → `userId`); once any component is composite or the sort key
+///   has a literal, the synthetic names `pk`/`sk` are used and members are
+///   joined with `#` through `keygrip::KeyPart`.
+/// - `SPACE`: `SortSpace::Prefix` for leading literals followed by fields,
+///   `SortSpace::Exact` for a sort key of literals only. Literals are not part
+///   of `Key<N>`.
 /// - For a composite sort key, a `prefix(…)` associated function taking all
 ///   but the last member and returning a `begins_with`-ready string
 ///   (`"{a}#{b}#"`).

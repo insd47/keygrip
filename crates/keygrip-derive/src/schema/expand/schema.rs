@@ -14,6 +14,7 @@ pub fn schema(name: &Ident, attr: &Schema) -> TokenStream {
     let bindings = &primary.bindings;
     let parts = &primary.parts;
     let value = &primary.value;
+    let space = &primary.space;
 
     let indexes = attr
         .indexes
@@ -28,6 +29,7 @@ pub fn schema(name: &Ident, attr: &Schema) -> TokenStream {
             const NAME: &'static str = #schema_name;
             const PARTITION: &'static str = #partition;
             const SORT: ::core::option::Option<&'static str> = #sort;
+            #space
             type Key<'a> = #keygrip::Key<#key_count>;
 
             fn parts<'a>(key: impl ::core::convert::Into<Self::Key<'a>>) -> #keygrip::Parts

@@ -10,6 +10,7 @@ pub struct Primary {
     pub bindings: Vec<Ident>,
     pub parts: TokenStream,
     pub value: TokenStream,
+    pub space: TokenStream,
 }
 
 pub fn primary(key: &Key, keygrip: &TokenStream) -> Primary {
@@ -22,7 +23,12 @@ pub fn primary(key: &Key, keygrip: &TokenStream) -> Primary {
     let sort_bindings = &bindings[key.partition.len()..];
     let partition_value = joined(partition_bindings);
     let parts = if let Some(sort) = &names.sort {
-        let sort_value = joined(sort_bindings);
+        let literals = key
+            .literals
+            .iter()
+            .map(|literal| quote!(::std::string::String::from(#literal)));
+        let bindings = sort_bindings.iter().map(|binding| quote!(#binding));
+        let sort_value = joined_values(&literals.chain(bindings).collect::<Vec<_>>());
         let partition = &names.partition;
 
         quote!(#keygrip::Parts::two(#partition, #partition_value, #sort, #sort_value))
@@ -36,6 +42,7 @@ pub fn primary(key: &Key, keygrip: &TokenStream) -> Primary {
         .map(|field| quote!(&self.#field))
         .collect::<Vec<_>>();
     let value = tuple(&values);
+    let space = space(key, keygrip);
 
     Primary {
         partition: names.partition,
@@ -43,6 +50,31 @@ pub fn primary(key: &Key, keygrip: &TokenStream) -> Primary {
         bindings,
         parts,
         value,
+        space,
+    }
+}
+
+/// The `SPACE` constant for a sort key with leading literals.
+fn space(key: &Key, keygrip: &TokenStream) -> TokenStream {
+    if key.literals.is_empty() {
+        return quote!();
+    }
+
+    let literal = key
+        .literals
+        .iter()
+        .map(syn::LitStr::value)
+        .collect::<Vec<_>>()
+        .join("#");
+    let space = if key.sort.is_empty() {
+        quote!(#keygrip::SortSpace::Exact(#literal))
+    } else {
+        quote!(#keygrip::SortSpace::Prefix(#literal))
+    };
+
+    quote! {
+        const SPACE: ::core::option::Option<#keygrip::SortSpace> =
+            ::core::option::Option::Some(#space);
     }
 }
 
@@ -70,6 +102,14 @@ fn joined(fields: &[Ident]) -> TokenStream {
         quote!(#field)
     } else {
         quote!([#(#fields),*].join("#"))
+    }
+}
+
+fn joined_values(values: &[TokenStream]) -> TokenStream {
+    if values.len() == 1 {
+        values[0].clone()
+    } else {
+        quote!([#(#values),*].join("#"))
     }
 }
 
