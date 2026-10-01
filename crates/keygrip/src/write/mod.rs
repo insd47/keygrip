@@ -72,7 +72,7 @@ fn clause(update: Option<Bindings>, condition: Option<Expression>) -> Result<(Op
 }
 
 /// Maps a single-item response: `None` when the condition was rejected.
-fn applied<O, E, R>(result: std::result::Result<O, SdkError<E, R>>) -> Result<Option<O>>
+fn applied<O, E, R>(result: Result<O, SdkError<E, R>>) -> Result<Option<O>>
 where
     E: ProvideErrorMetadata,
     SdkError<E, R>: Display,
