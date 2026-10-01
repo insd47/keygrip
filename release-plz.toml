@@ -21,8 +21,9 @@ version_group = "keygrip"
 [changelog]
 protect_breaking_commits = true
 commit_parsers = [
+    { message = "^[a-z]+(\\(.+\\))?!:", group = "changed" },
     { message = "^feat", group = "added" },
     { message = "^fix", group = "fixed" },
-    { message = "^perf", group = "changed" },
+    { message = "^(perf|revert)", group = "changed" },
     { message = ".*", skip = true },
 ]
