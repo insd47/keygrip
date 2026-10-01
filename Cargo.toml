@@ -21,3 +21,7 @@ serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[workspace.lints.clippy]
+redundant_pub_crate = "warn"
+self_named_module_files = "warn"
