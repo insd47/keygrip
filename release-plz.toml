@@ -1,9 +1,29 @@
+[workspace]
+release_always = false
+release_commits = "^(feat|fix|perf|revert)|^[a-z]+(\\(.+\\))?!:"
+pr_labels = ["release"]
+
 [[package]]
 name = "keygrip"
 git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
 changelog_path = "CHANGELOG.md"
+changelog_include = ["keygrip-derive"]
+version_group = "keygrip"
 
 [[package]]
 name = "keygrip-derive"
 git_tag_enable = false
 git_release_enable = false
+changelog_update = false
+version_group = "keygrip"
+
+[changelog]
+protect_breaking_commits = true
+commit_parsers = [
+    { message = "^[a-z]+(\\(.+\\))?!:", group = "changed" },
+    { message = "^feat", group = "added" },
+    { message = "^fix", group = "fixed" },
+    { message = "^(perf|revert)", group = "changed" },
+    { message = ".*", skip = true },
+]

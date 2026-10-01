@@ -18,23 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Rust 설치
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
-      - name: 검사
+      - name: Check
         run: |
           cargo fmt --all --check
           cargo clippy --workspace --all-targets --all-features -- -D warnings
           cargo test --workspace --all-features
-
-      - name: CHANGELOG 작성 확인
-        run: |
-          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "keygrip") | .version')
-          latest=$(sed -nE 's/^## \[([^]]+)\].*/\1/p' CHANGELOG.md | head -n 1)
-
-          if [ "$version" != "$latest" ]; then
-            echo "::error file=CHANGELOG.md::CHANGELOG.md의 최신 버전($latest)이 Cargo.toml의 버전($version)과 다릅니다."
-            exit 1
-          fi
