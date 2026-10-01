@@ -11,6 +11,20 @@ keygrip is a Cargo workspace of two crates released in lockstep: `keygrip` and i
   commit on `main` and the changelog line.
 - Commits inside a branch are free-form. Only the pull request title is kept.
 
+### Stacked pull requests
+
+Split a change that has several reviewable steps into a
+[stack](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs): each pull request targets the branch
+of the one below it, and the bottom one targets `main`. Create the stack from "Preview stack" once every pull request
+is open.
+
+- Every pull request in the stack runs `check` and `title`, and each one still lands as its own squash commit and
+  changelog line.
+- Merge the top pull request once all checks pass; everything below it lands in order. Merging a lower pull request on
+  its own restacks the rest and reruns their checks.
+- A change to the workflows belongs at the bottom of the stack. `title` runs on `pull_request_target`, which reads its
+  trigger from the workflow file on `main`, so upper pull requests pick up the change only after it lands.
+
 ## Pull request titles
 
 Titles follow [Conventional Commits](https://www.conventionalcommits.org/) with an English subject:
