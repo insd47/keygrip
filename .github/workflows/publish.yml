@@ -6,7 +6,7 @@ on:
 
 jobs:
   release:
-    name: 발행
+    name: Release
     runs-on: ubuntu-latest
 
     permissions:
@@ -23,14 +23,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rust 설치
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: crates.io 로그인
+      - name: Log in to crates.io
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
 
-      - name: 발행
+      - name: Release
         uses: release-plz/action@v0.5
         with:
           command: release
@@ -39,7 +39,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-pr:
-    name: Release PR 갱신
+    name: Release PR
     runs-on: ubuntu-latest
 
     permissions:
@@ -50,16 +50,15 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      # 기본 토큰으로 연 PR에서는 check가 실행되지 않으므로 PAT를 사용합니다.
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_PLZ_TOKEN }}
 
-      - name: Rust 설치
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Release PR 갱신
+      - name: Update release PR
         uses: release-plz/action@v0.5
         with:
           command: release-pr

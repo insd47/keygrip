@@ -14,12 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # squash 병합에서는 PR 제목이 main의 커밋이 되고, 그대로 CHANGELOG에 들어갑니다.
-      - name: PR 제목 검사
+      - name: Check PR title
         uses: amannn/action-semantic-pull-request@v6
         with:
           subjectPattern: ^[ -~]+$
-          subjectPatternError: |
-            PR 제목의 설명 "{subject}"은 CHANGELOG에 그대로 들어가므로 영어(ASCII)로 써 주세요
+          subjectPatternError: The subject "{subject}" goes into CHANGELOG.md as is, so write it in English (ASCII).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
