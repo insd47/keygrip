@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/insd47/keygrip/compare/v0.4.0...v0.5.0) - 2026-10-01
+
+### Added
+
+- declare sort key spaces with literal sort key parts ([#6](https://github.com/insd47/keygrip/pull/6))
+- await transactions with the client of their first write ([#4](https://github.com/insd47/keygrip/pull/4))
+
+### Changed
+
+- [**breaking**] take the page limit as u32 and describe Cursor as it is ([#14](https://github.com/insd47/keygrip/pull/14))
+- [**breaking**] run transactions with the client of their first write ([#13](https://github.com/insd47/keygrip/pull/13))
+- [**breaking**] mark Error non_exhaustive and default Result's error type ([#12](https://github.com/insd47/keygrip/pull/12))
+- [**breaking**] drop the unused lifetime from Schema::Key ([#11](https://github.com/insd47/keygrip/pull/11))
+- [**breaking**] return Merge from Entity::merge ([#10](https://github.com/insd47/keygrip/pull/10))
+
 ## [0.4.0](https://github.com/insd47/keygrip/releases/tag/v0.4.0) - 2026-09-26
 
 0.4 fills the gaps in the typed API so the extension toolkit can leave the public surface. Writes are values with one
