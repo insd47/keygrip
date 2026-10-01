@@ -1,7 +1,8 @@
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
-/// Opaque pagination cursor, as returned by DynamoDB (`LastEvaluatedKey`).
+/// Pagination cursor: DynamoDB's `LastEvaluatedKey`, the primary key
+/// attributes of the last item read.
 ///
 /// Pass it back to [`Query::page`](crate::Query::page) to resume; `None`
 /// means the result set is exhausted.
