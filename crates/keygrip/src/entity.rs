@@ -49,10 +49,7 @@ impl<E: Schema> Entity<E> {
 
     /// Fetches the entity at the given key with a consistent read, or `None`
     /// if it does not exist.
-    pub async fn find<'a>(&self, primary: impl Into<E::Key<'a>>) -> Result<Option<E>>
-    where
-        E: 'a,
-    {
+    pub async fn find(&self, primary: impl Into<E::Key>) -> Result<Option<E>> {
         let response = self
             .client
             .get_item()
@@ -68,10 +65,7 @@ impl<E: Schema> Entity<E> {
 
     /// Fetches the entity at the given key, or fails with
     /// [`Error::NotFound`].
-    pub async fn get<'a>(&self, key: impl Into<E::Key<'a>>) -> Result<E>
-    where
-        E: 'a,
-    {
+    pub async fn get(&self, key: impl Into<E::Key>) -> Result<E> {
         self.find(key)
             .await?
             .ok_or_else(|| Error::NotFound(format!("{} not found.", E::NAME)))
@@ -83,10 +77,7 @@ impl<E: Schema> Entity<E> {
     }
 
     /// Starts an [`Update`] of the item at `primary` with `expression`.
-    pub fn update<'a>(&self, primary: impl Into<E::Key<'a>>, expression: Expression) -> Update<'_, E>
-    where
-        E: 'a,
-    {
+    pub fn update(&self, primary: impl Into<E::Key>, expression: Expression) -> Update<'_, E> {
         Update::expression(self, document_key(E::parts(primary)), expression)
     }
 
@@ -102,10 +93,7 @@ impl<E: Schema> Entity<E> {
     }
 
     /// Starts a [`Delete`] of the item at `primary`.
-    pub fn delete<'a>(&self, primary: impl Into<E::Key<'a>>) -> Delete<'_, E>
-    where
-        E: 'a,
-    {
+    pub fn delete(&self, primary: impl Into<E::Key>) -> Delete<'_, E> {
         Delete::new(self, document_key(E::parts(primary)))
     }
 
@@ -162,11 +150,10 @@ impl<E: Schema> Entity<E> {
     ///
     /// Result order is not guaranteed to match the input; fails if DynamoDB
     /// leaves keys unprocessed.
-    pub async fn batch<'a, I, K>(&self, keys: I) -> Result<Vec<E>>
+    pub async fn batch<I, K>(&self, keys: I) -> Result<Vec<E>>
     where
-        E: 'a,
         I: IntoIterator<Item = K>,
-        K: Into<E::Key<'a>>,
+        K: Into<E::Key>,
     {
         let keys = keys
             .into_iter()
