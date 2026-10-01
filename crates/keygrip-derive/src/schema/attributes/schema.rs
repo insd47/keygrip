@@ -1,5 +1,5 @@
 use super::{Index, Key};
-use crate::schema::utils::fields;
+use crate::schema::utils::{fields, sort};
 use proc_macro2::Ident;
 use syn::spanned::Spanned;
 use syn::{DeriveInput, Error, LitStr};
@@ -37,7 +37,7 @@ impl Schema {
             } else if meta.path.is_ident("pk") {
                 schema.key.partition = fields(meta)?;
             } else if meta.path.is_ident("sk") {
-                schema.key.sort = fields(meta)?;
+                (schema.key.literals, schema.key.sort) = sort(meta)?;
             } else if meta.path.is_ident("index") {
                 schema.indexes.push(Index::parse(meta)?);
             } else {

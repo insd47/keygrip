@@ -92,7 +92,7 @@ pub use expression::Expression;
 pub use keygrip_derive::Schema;
 #[cfg(feature = "dynamodb")]
 pub use query::Query;
-pub use schema::{Index, Key, KeyPart, Parts, Schema};
+pub use schema::{Index, Key, KeyPart, Parts, Schema, SortSpace};
 #[cfg(feature = "dynamodb")]
 pub use transaction::{Outcome, Transaction};
 #[cfg(feature = "dynamodb")]

@@ -1,9 +1,10 @@
 use super::query;
 use crate::key::document_key;
+use crate::query::SortCondition;
 use crate::{
     item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update,
 };
-use aws_sdk_dynamodb::types::KeysAndAttributes;
+use aws_sdk_dynamodb::types::{AttributeValue, KeysAndAttributes};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -118,19 +119,43 @@ impl<E: Schema> Entity<E> {
     /// Reads the whole table, following pagination to the end.
     ///
     /// Intended for small tables; there is deliberately no paginated scan.
+    /// A schema with a [`SortSpace`](crate::SortSpace) filters the scan to
+    /// its own items; the read cost still covers the whole table.
     pub async fn scan(&self) -> Result<Vec<E>> {
         let mut entities = Vec::new();
         let mut cursor = None;
+        let space = match SortCondition::new(E::SPACE, None)? {
+            Some(condition) => {
+                let sort = E::SORT.ok_or_else(|| {
+                    Error::Invalid("a sort key space was declared without a sort key".into())
+                })?;
+
+                Some((condition, sort))
+            }
+            None => None,
+        };
 
         loop {
-            let response = self
+            let mut scan = self
                 .client
                 .scan()
                 .table_name(&self.name)
-                .set_exclusive_start_key(cursor)
-                .send()
-                .await
-                .map_err(request::unavailable)?;
+                .set_exclusive_start_key(cursor);
+
+            if let Some((condition, sort)) = &space {
+                scan = scan
+                    .filter_expression(&condition.expression)
+                    .expression_attribute_names("#sort", *sort);
+
+                for (placeholder, value) in &condition.values {
+                    scan = scan.expression_attribute_values(
+                        *placeholder,
+                        AttributeValue::S(value.clone()),
+                    );
+                }
+            }
+
+            let response = scan.send().await.map_err(request::unavailable)?;
 
             entities.extend(item::page(response.items)?);
             cursor = response.last_evaluated_key;

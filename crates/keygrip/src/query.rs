@@ -1,5 +1,7 @@
 use crate::types::Sort;
-use crate::{item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema};
+use crate::{
+    item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema, SortSpace,
+};
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
@@ -123,27 +125,19 @@ impl<E: Schema> Query<'_, E> {
             .set_exclusive_start_key(cursor)
             .set_limit(limit);
 
-        if let Some(condition) = &self.sort {
+        // The table's sort key space does not apply to an index's sort key.
+        let space = self.index.map_or(E::SPACE, |_| None);
+
+        if let Some(condition) = SortCondition::new(space, self.sort.as_ref())? {
             let sort = sort.ok_or_else(|| {
                 Error::Invalid("a sort condition was used without a sort key".into())
             })?;
 
-            match condition {
-                Sort::Prefix(prefix) => {
-                    expression.push_str(" AND begins_with(#sort, :sort)");
-                    query = query
-                        .expression_attribute_values(":sort", AttributeValue::S(prefix.clone()));
-                }
-                Sort::Equal(value) => {
-                    expression.push_str(" AND #sort = :sort");
-                    query = query
-                        .expression_attribute_values(":sort", AttributeValue::S(value.clone()));
-                }
-                Sort::After(value) => {
-                    expression.push_str(" AND #sort > :sort");
-                    query = query
-                        .expression_attribute_values(":sort", AttributeValue::S(value.clone()));
-                }
+            expression.push_str(" AND ");
+            expression.push_str(&condition.expression);
+
+            for (placeholder, value) in condition.values {
+                query = query.expression_attribute_values(placeholder, AttributeValue::S(value));
             }
 
             query = query
@@ -160,9 +154,74 @@ impl<E: Schema> Query<'_, E> {
     }
 }
 
+/// A sort-key condition over `#sort`, combining the schema's
+/// [`SortSpace`] with the query's own constraint.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct SortCondition {
+    pub(crate) expression: String,
+    pub(crate) values: Vec<(&'static str, String)>,
+}
+
+impl SortCondition {
+    pub(crate) fn new(space: Option<SortSpace>, sort: Option<&Sort>) -> Result<Option<Self>> {
+        let condition = match (space, sort) {
+            (None, None) => return Ok(None),
+            (None, Some(Sort::Prefix(prefix))) => Self::begins_with(prefix.clone()),
+            (None, Some(Sort::Equal(value))) => Self::equal(value.clone()),
+            (None, Some(Sort::After(value))) => Self {
+                expression: "#sort > :sort".into(),
+                values: vec![(":sort", value.clone())],
+            },
+            (Some(SortSpace::Prefix(space)), sort) => {
+                let base = format!("{space}#");
+
+                match sort {
+                    None => Self::begins_with(base),
+                    Some(Sort::Prefix(prefix)) => Self::begins_with(format!("{base}{prefix}")),
+                    Some(Sort::Equal(value)) => Self::equal(format!("{base}{value}")),
+                    // A key condition takes one comparison, so "after `value`, inside the
+                    // space" is a range: NUL is the smallest suffix, and `$` follows the `#`
+                    // that ends the space.
+                    Some(Sort::After(value)) => Self {
+                        expression: "#sort BETWEEN :low AND :high".into(),
+                        values: vec![
+                            (":low", format!("{base}{value}\u{0}")),
+                            (":high", format!("{space}$")),
+                        ],
+                    },
+                }
+            }
+            (Some(SortSpace::Exact(space)), None) => Self::equal(space.into()),
+            (Some(SortSpace::Exact(_)), Some(_)) => {
+                return Err(Error::Invalid(
+                    "a sort condition was used on a sort key made only of literals".into(),
+                ));
+            }
+        };
+
+        Ok(Some(condition))
+    }
+
+    fn begins_with(value: String) -> Self {
+        Self {
+            expression: "begins_with(#sort, :sort)".into(),
+            values: vec![(":sort", value)],
+        }
+    }
+
+    fn equal(value: String) -> Self {
+        Self {
+            expression: "#sort = :sort".into(),
+            values: vec![(":sort", value)],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{Entity, Error, Index};
+    use super::SortCondition;
+    use crate::types::Sort;
+    use crate::{Entity, Error, Index, SortSpace};
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::{Client, Config};
     use serde::{Deserialize, Serialize};
@@ -172,6 +231,54 @@ mod tests {
     struct RecordTable {
         owner: String,
         id: String,
+    }
+
+    #[test]
+    fn keeps_queries_inside_a_prefix_space() {
+        let space = Some(SortSpace::Prefix("run"));
+        let condition =
+            |sort: Option<Sort>| SortCondition::new(space, sort.as_ref()).unwrap().unwrap();
+
+        assert_eq!(condition(None).values, [(":sort", "run#".into())]);
+        assert_eq!(
+            condition(Some(Sort::Prefix("p1#".into()))).values,
+            [(":sort", "run#p1#".into())]
+        );
+        assert_eq!(
+            condition(Some(Sort::Equal("p1#a".into()))).expression,
+            "#sort = :sort"
+        );
+
+        let after = condition(Some(Sort::After("p1#a".into())));
+
+        assert_eq!(after.expression, "#sort BETWEEN :low AND :high");
+        assert_eq!(
+            after.values,
+            [(":low", "run#p1#a\u{0}".into()), (":high", "run$".into())]
+        );
+    }
+
+    #[test]
+    fn matches_exact_spaces_and_rejects_further_sort_conditions() {
+        let space = Some(SortSpace::Exact("gate"));
+        let exact = SortCondition::new(space, None).unwrap().unwrap();
+        let error = SortCondition::new(space, Some(&Sort::Prefix("x".into()))).unwrap_err();
+
+        assert_eq!(exact.expression, "#sort = :sort");
+        assert_eq!(exact.values, [(":sort", "gate".into())]);
+        assert!(matches!(error, Error::Invalid(_)));
+    }
+
+    #[test]
+    fn passes_sort_conditions_through_without_a_space() {
+        assert_eq!(SortCondition::new(None, None).unwrap(), None);
+        assert_eq!(
+            SortCondition::new(None, Some(&Sort::After("a".into())))
+                .unwrap()
+                .unwrap()
+                .values,
+            [(":sort", "a".into())]
+        );
     }
 
     #[tokio::test]

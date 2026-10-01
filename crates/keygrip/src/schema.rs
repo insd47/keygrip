@@ -14,6 +14,13 @@ pub trait Schema: Serialize + DeserializeOwned {
     const PARTITION: &'static str;
     /// Attribute name of the sort key, if the table has one.
     const SORT: Option<&'static str> = None;
+    /// The part of the sort-key range this schema occupies (derive: leading
+    /// string literals in `sk(…)`).
+    ///
+    /// Queries and scans stay inside it, so several item shapes can share one
+    /// table. A manual implementation that sets it must encode its sort keys
+    /// to match.
+    const SPACE: Option<SortSpace> = None;
     /// Borrowed key-part bundle accepted by lookups (derive: [`Key<N>`] where
     /// `N` counts every `pk`/`sk` field).
     ///
@@ -74,6 +81,20 @@ impl Parts {
             sort: Some((sort, sort_value.into())),
         }
     }
+}
+
+/// The sort-key range one schema occupies within a shared table.
+///
+/// Declared with leading string literals in `#[entity(sk(…))]`:
+/// `sk("run", problem_id, id)` stores `run#{problem_id}#{id}` and occupies
+/// [`Prefix("run")`](SortSpace::Prefix); `sk("gate")` stores `gate` and
+/// occupies [`Exact("gate")`](SortSpace::Exact).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortSpace {
+    /// Every sort key starts with this value followed by `#`.
+    Prefix(&'static str),
+    /// Every sort key is exactly this value: one item per partition.
+    Exact(&'static str),
 }
 
 /// A global secondary index's name and key attribute names.
@@ -146,7 +167,7 @@ impl<A: KeyPart + ?Sized, B: KeyPart + ?Sized, C: KeyPart + ?Sized, D: KeyPart +
 
 #[cfg(test)]
 mod tests {
-    use super::{Parts, Schema};
+    use super::{Parts, Schema, SortSpace};
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, crate::Schema)]
@@ -162,6 +183,54 @@ mod tests {
         scope: String,
         kind: String,
         id: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, crate::Schema)]
+    #[entity(pk(user_id), sk("run", problem_id, id))]
+    struct RunTable {
+        user_id: String,
+        problem_id: String,
+        id: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, crate::Schema)]
+    #[entity(pk(user_id), sk("gate"))]
+    struct GateTable {
+        user_id: String,
+        rev: i64,
+    }
+
+    #[test]
+    fn encodes_leading_sort_literals_as_a_prefix_space() {
+        assert_eq!(RunTable::SPACE, Some(SortSpace::Prefix("run")));
+        assert_eq!(
+            RunTable::parts(("user", "problem", "id")),
+            Parts::two("pk", "user", "sk", "run#problem#id")
+        );
+        assert_eq!(RunTable::prefix("problem"), "problem#");
+    }
+
+    #[test]
+    fn encodes_literal_only_sort_keys_as_an_exact_space() {
+        let gate = GateTable {
+            user_id: "user".into(),
+            rev: 0,
+        };
+
+        assert_eq!(GateTable::SPACE, Some(SortSpace::Exact("gate")));
+        assert_eq!(GateTable::PARTITION, "pk");
+        assert_eq!(GateTable::SORT, Some("sk"));
+        assert_eq!(
+            GateTable::parts("user"),
+            Parts::two("pk", "user", "sk", "gate")
+        );
+        assert_eq!(GateTable::parts(gate.primary()), GateTable::parts("user"));
+    }
+
+    #[test]
+    fn leaves_schemas_without_literals_outside_any_space() {
+        assert_eq!(Record::SPACE, None);
+        assert_eq!(UserTable::SPACE, None);
     }
 
     #[test]
