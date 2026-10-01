@@ -168,7 +168,6 @@ let outcome = Transaction::new()
     .add(sessions.put(&session).when(Condition::absent()))
     .add(users.update(&user.id, pointer).when(unchanged))
     .label("pointer")
-    .run(&client)
     .await?;
 
 if outcome.rejected("pointer") {
@@ -176,8 +175,9 @@ if outcome.rejected("pointer") {
 }
 ```
 
-Like single writes, rejected conditions resolve to an `Outcome` (`committed()`, `rejected(label)`) rather than an
-error; cancellations for any other reason fail with `Error::Unavailable`. Labels must be unique; placeholders may be
+Awaiting a transaction sends it with the client of its first write's entity; `run(&client)` takes the client
+explicitly. Like single writes, rejected conditions resolve to an `Outcome` (`committed()`, `rejected(label)`) rather
+than an error; cancellations for any other reason fail with `Error::Unavailable`. Labels must be unique; placeholders may be
 reused freely by different steps.
 
 ## Errors

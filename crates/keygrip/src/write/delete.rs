@@ -2,6 +2,7 @@ use super::{applied, clause, Clause, Condition, Pending, Slot};
 use crate::{Entity, Result, Schema};
 use aws_sdk_dynamodb::operation::delete_item::builders::DeleteItemFluentBuilder;
 use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 use std::future::{Future, IntoFuture};
 
@@ -48,6 +49,10 @@ impl<'a, E: Schema> Delete<'a, E> {
         let request = self.request();
 
         async move { Ok(applied(request?.send().await)?.is_some()) }
+    }
+
+    pub(crate) fn client(&self) -> &Client {
+        self.entity.client()
     }
 
     pub(crate) fn compile(self) -> Result<Compiled> {
