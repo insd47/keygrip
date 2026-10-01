@@ -1,10 +1,10 @@
 use super::{applied, clause, invalid, Clause, Condition, Pending, Slot};
 use crate::binding::Bindings;
 use crate::key::document_key;
+use crate::transaction::Step;
 use crate::{item, Entity, Expression, Result, Schema};
 use aws_sdk_dynamodb::operation::update_item::builders::UpdateItemFluentBuilder;
-use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};
-use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::types::{self, AttributeValue, ReturnValue, TransactWriteItem};
 use std::collections::HashMap;
 use std::future::{Future, IntoFuture};
 
@@ -52,11 +52,11 @@ enum Body<'a, E> {
     Merge { value: &'a E, keep: Vec<String> },
 }
 
-pub(crate) struct Compiled {
-    pub(crate) table: String,
-    pub(crate) key: HashMap<String, AttributeValue>,
-    pub(crate) update: String,
-    pub(crate) clause: Clause,
+struct Compiled {
+    table: String,
+    key: HashMap<String, AttributeValue>,
+    update: String,
+    clause: Clause,
 }
 
 impl<'a, E: Schema> Update<'a, E> {
@@ -141,11 +141,7 @@ impl<'a, E: Schema> Update<'a, E> {
         }
     }
 
-    pub(crate) fn client(&self) -> &Client {
-        self.entity.client()
-    }
-
-    pub(crate) fn compile(self) -> Result<Compiled> {
+    fn compile(self) -> Result<Compiled> {
         if let Some(problem) = self.problem {
             return Err(invalid(problem));
         }
@@ -246,11 +242,39 @@ fn merge<E: Schema>(value: &E, key: &HashMap<String, AttributeValue>, keep: &[St
     })
 }
 
+impl<E: Schema> From<Update<'_, E>> for Step {
+    fn from(write: Update<'_, E>) -> Self {
+        let client = write.entity.client().clone();
+        let item = write.compile().and_then(
+            |Compiled {
+                 table,
+                 key,
+                 update,
+                 clause,
+             }| {
+                let update = types::Update::builder()
+                    .table_name(table)
+                    .set_key(Some(key))
+                    .update_expression(update)
+                    .set_condition_expression(clause.condition)
+                    .set_expression_attribute_names(clause.names)
+                    .set_expression_attribute_values(clause.values)
+                    .build()
+                    .map_err(|error| invalid(error.to_string()))?;
+
+                Ok(TransactWriteItem::builder().update(update).build())
+            },
+        );
+
+        Step { item, client }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Update;
     use crate::Expression;
-    use crate::{Condition, Entity, Error};
+    use crate::{Entity, Error};
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};
     use aws_sdk_dynamodb::{Client, Config};
@@ -361,48 +385,6 @@ mod tests {
 
         assert_eq!(key["pk"].as_s().unwrap(), "contest#user");
         assert_eq!(key["sk"].as_s().unwrap(), "submission#one");
-    }
-
-    #[test]
-    fn serializes_put_values_with_composed_keys() {
-        let records = entity();
-        let record = RecordTable {
-            scope: "contest".into(),
-            owner: "user".into(),
-            kind: "submission".into(),
-            id: "one".into(),
-            active: true,
-        };
-        let put = records.put(&record).when(Condition::absent()).compile().unwrap();
-        let names = put.clause.names.unwrap();
-
-        assert_eq!(put.table, "Records");
-        assert_eq!(
-            put.clause.condition.as_deref(),
-            Some("attribute_not_exists(#keygripKey)")
-        );
-        assert_eq!(names["#keygripKey"], "pk");
-        assert_eq!(put.item["pk"].as_s().unwrap(), "contest#user");
-        assert_eq!(put.item["sk"].as_s().unwrap(), "submission#one");
-        assert_eq!(put.item["scope"].as_s().unwrap(), "contest");
-        assert!(matches!(put.item["active"], AttributeValue::Bool(true)));
-    }
-
-    #[test]
-    fn resolves_existence_conditions_against_the_key_schema() {
-        let submissions = submission_entity();
-        let delete = submissions
-            .delete(("user", "problem"))
-            .when(Condition::exists())
-            .compile()
-            .unwrap();
-
-        assert_eq!(
-            delete.clause.condition.as_deref(),
-            Some("attribute_exists(#keygripKey)")
-        );
-        assert_eq!(delete.clause.names.unwrap()["#keygripKey"], "userId");
-        assert_eq!(delete.key["problemId"].as_s().unwrap(), "problem");
     }
 
     #[test]

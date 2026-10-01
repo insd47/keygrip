@@ -56,13 +56,13 @@ impl From<Expression> for Condition {
 /// A write's single condition slot; a second condition is recorded as a
 /// problem and surfaces when the write compiles.
 #[derive(Debug, Default)]
-pub(crate) struct Slot {
+pub struct Slot {
     condition: Option<Condition>,
     problem: Option<String>,
 }
 
 impl Slot {
-    pub(crate) fn attach(&mut self, condition: Condition) {
+    pub fn attach(&mut self, condition: Condition) {
         if self.condition.is_some() {
             self.problem
                 .get_or_insert_with(|| "a write cannot have more than one condition".into());
@@ -71,7 +71,7 @@ impl Slot {
         }
     }
 
-    pub(crate) fn resolve<E: Schema>(self) -> Result<Option<Expression>> {
+    pub fn resolve<E: Schema>(self) -> Result<Option<Expression>> {
         match self.problem {
             Some(problem) => Err(invalid(problem)),
             None => Ok(self.condition.map(Condition::resolve::<E>)),

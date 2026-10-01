@@ -1,9 +1,9 @@
-use super::{applied, clause, Clause, Condition, Pending, Slot};
+use super::{applied, clause, invalid, Clause, Condition, Pending, Slot};
 use crate::key::document_key;
+use crate::transaction::Step;
 use crate::{item, Entity, Result, Schema};
 use aws_sdk_dynamodb::operation::put_item::builders::PutItemFluentBuilder;
-use aws_sdk_dynamodb::types::AttributeValue;
-use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::types::{self, AttributeValue, TransactWriteItem};
 use std::collections::HashMap;
 use std::future::{Future, IntoFuture};
 
@@ -29,10 +29,10 @@ pub struct Put<'a, E: Schema> {
     condition: Slot,
 }
 
-pub(crate) struct Compiled {
-    pub(crate) table: String,
-    pub(crate) item: HashMap<String, AttributeValue>,
-    pub(crate) clause: Clause,
+struct Compiled {
+    table: String,
+    item: HashMap<String, AttributeValue>,
+    clause: Clause,
 }
 
 impl<'a, E: Schema> Put<'a, E> {
@@ -62,11 +62,7 @@ impl<'a, E: Schema> Put<'a, E> {
         async move { Ok(applied(request?.send().await)?.is_some()) }
     }
 
-    pub(crate) fn client(&self) -> &Client {
-        self.entity.client()
-    }
-
-    pub(crate) fn compile(self) -> Result<Compiled> {
+    fn compile(self) -> Result<Compiled> {
         let (_, clause) = clause(None, self.condition.resolve::<E>()?)?;
         let mut item = item::to(self.value)?;
         item.extend(document_key(E::parts(self.value.primary())));
@@ -99,5 +95,75 @@ impl<'a, E: Schema> IntoFuture for Put<'a, E> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(self.run())
+    }
+}
+
+impl<E: Schema> From<Put<'_, E>> for Step {
+    fn from(write: Put<'_, E>) -> Self {
+        let client = write.entity.client().clone();
+        let item = write.compile().and_then(|Compiled { table, item, clause }| {
+            let put = types::Put::builder()
+                .table_name(table)
+                .set_item(Some(item))
+                .set_condition_expression(clause.condition)
+                .set_expression_attribute_names(clause.names)
+                .set_expression_attribute_values(clause.values)
+                .build()
+                .map_err(|error| invalid(error.to_string()))?;
+
+            Ok(TransactWriteItem::builder().put(put).build())
+        });
+
+        Step { item, client }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Condition, Entity};
+    use aws_sdk_dynamodb::config::BehaviorVersion;
+    use aws_sdk_dynamodb::types::AttributeValue;
+    use aws_sdk_dynamodb::{Client, Config};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, crate::Schema)]
+    #[entity(pk(scope, owner), sk(kind, id))]
+    struct RecordTable {
+        scope: String,
+        owner: String,
+        kind: String,
+        id: String,
+        active: bool,
+    }
+
+    #[test]
+    fn serializes_put_values_with_composed_keys() {
+        let records = entity();
+        let record = RecordTable {
+            scope: "contest".into(),
+            owner: "user".into(),
+            kind: "submission".into(),
+            id: "one".into(),
+            active: true,
+        };
+        let put = records.put(&record).when(Condition::absent()).compile().unwrap();
+        let names = put.clause.names.unwrap();
+
+        assert_eq!(put.table, "Records");
+        assert_eq!(
+            put.clause.condition.as_deref(),
+            Some("attribute_not_exists(#keygripKey)")
+        );
+        assert_eq!(names["#keygripKey"], "pk");
+        assert_eq!(put.item["pk"].as_s().unwrap(), "contest#user");
+        assert_eq!(put.item["sk"].as_s().unwrap(), "submission#one");
+        assert_eq!(put.item["scope"].as_s().unwrap(), "contest");
+        assert!(matches!(put.item["active"], AttributeValue::Bool(true)));
+    }
+
+    fn entity() -> Entity<RecordTable> {
+        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
+
+        Entity::new(&Client::from_conf(config), "Records")
     }
 }

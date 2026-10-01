@@ -8,9 +8,9 @@
 //! [`Transaction`](crate::Transaction).
 
 mod condition;
-pub(crate) mod delete;
-pub(crate) mod put;
-pub(crate) mod update;
+mod delete;
+mod put;
+mod update;
 
 pub use condition::Condition;
 pub use delete::Delete;
@@ -32,10 +32,10 @@ type Pending<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 /// A write's condition merged with every placeholder the write binds —
 /// the part shared by single requests and transaction steps.
-pub(crate) struct Clause {
-    pub(crate) condition: Option<String>,
-    pub(crate) names: Option<HashMap<String, String>>,
-    pub(crate) values: Option<HashMap<String, AttributeValue>>,
+struct Clause {
+    condition: Option<String>,
+    names: Option<HashMap<String, String>>,
+    values: Option<HashMap<String, AttributeValue>>,
 }
 
 /// Merges an optional update expression with an optional condition,
