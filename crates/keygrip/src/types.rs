@@ -13,10 +13,3 @@ pub struct Page<E> {
     pub items: Vec<E>,
     pub cursor: Option<Cursor>,
 }
-
-/// Sort-key constraint of a [`Query`](crate::Query).
-pub enum Sort {
-    Prefix(String),
-    Equal(String),
-    After(String),
-}

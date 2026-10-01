@@ -1,4 +1,3 @@
-use super::query;
 use crate::key::document_key;
 use crate::query::SortCondition;
 use crate::{item, request, Delete, Error, Expression, KeyPart, Put, Query, Result, Schema, Update};
@@ -206,6 +205,6 @@ impl<E: Schema> Entity<E> {
 
     /// Starts a [`Query`] scoped to the given partition key value.
     pub fn query<P: KeyPart + ?Sized>(&self, partition: &P) -> Query<'_, E> {
-        query::new(self, partition.part())
+        Query::new(self, partition.part())
     }
 }

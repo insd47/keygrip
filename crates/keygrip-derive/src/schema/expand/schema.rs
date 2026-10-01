@@ -1,5 +1,6 @@
 use crate::schema::attributes::Schema;
-use crate::schema::expand::{index, key};
+use crate::schema::expand::index;
+use crate::schema::expand::key::Primary;
 use crate::schema::utils;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
@@ -7,7 +8,7 @@ use quote::quote;
 pub fn schema(name: &Ident, attr: &Schema) -> TokenStream {
     let keygrip = quote!(::keygrip);
     let schema_name = attr.name(name);
-    let primary = key::primary(&attr.key, &keygrip);
+    let primary = Primary::new(&attr.key, &keygrip);
     let partition = &primary.partition;
     let sort = utils::option(primary.sort.as_deref());
     let key_count = primary.bindings.len();
@@ -15,14 +16,13 @@ pub fn schema(name: &Ident, attr: &Schema) -> TokenStream {
     let parts = &primary.parts;
     let value = &primary.value;
     let space = &primary.space;
+    let prefix = &primary.prefix;
 
     let indexes = attr
         .indexes
         .iter()
         .map(|index| index::constant(index, &keygrip))
         .collect::<Vec<_>>();
-
-    let prefix = key::prefix(&attr.key.sort, &keygrip);
 
     quote! {
         impl #keygrip::Schema for #name {
