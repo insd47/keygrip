@@ -3,23 +3,20 @@ name: Publish
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'crates/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/publish.yml'
-
-permissions:
-  contents: write
-  id-token: write
-
-concurrency:
-  group: publish
-  cancel-in-progress: false
 
 jobs:
-  publish:
+  release:
+    name: 발행
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
+
+    concurrency:
+      group: release
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v6
@@ -40,3 +37,31 @@ jobs:
           token: ${{ steps.auth.outputs.token }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-pr:
+    name: Release PR 갱신
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: release-pr
+      cancel-in-progress: false
+
+    steps:
+      # 기본 토큰으로 연 PR에서는 check가 실행되지 않으므로 PAT를 사용합니다.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
+
+      - name: Rust 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Release PR 갱신
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
