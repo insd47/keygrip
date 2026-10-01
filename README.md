@@ -73,6 +73,22 @@ struct ExecutionTable {
   }
   ```
 
+- **Sort key spaces**: leading string literals in `sk(…)` are fixed parts, so several item shapes can share one table
+  without seeing each other:
+
+  ```rust
+  #[entity(pk(user_id), sk("run", problem_id, id))]  // sk = "run#{problem_id}#{id}"
+  struct RunTable { /* … */ }
+
+  #[entity(pk(user_id), sk("gate"))]                 // sk = "gate", one item per partition
+  struct GateTable { /* … */ }
+  ```
+
+  Literals are left out of the key arguments (`gates.find(&user)`), force the `pk`/`sk` attribute names, and confine
+  queries and scans: `runs.query(&user)` only returns `run#…` items, and `prefix`, `eq`, and `after` apply inside that
+  space. Queries through an index are not confined, since index sort keys take no literals.
+
+  > Adding a literal to an existing schema changes its stored keys, so items written before can no longer be read.
 - **Indexes**: each `index(…)` clause emits a constant (`ExecutionTable::BY_ID`) to pass to `Query::index`.
 - **Prefix builders**: a composite sort key gets a generated `ExecutionTable::prefix(problem_id, kind)` returning a
   `begins_with`-ready string (`"{problem_id}#{kind}#"`).
@@ -219,9 +235,8 @@ impl Users {
 }
 ```
 
-Generic operations pass through `Deref`; your invariants stay yours. For item shapes the derive cannot express, such as
-a per-partition marker item at a fixed sort key, implement `Schema` by hand and give that shape its own `Entity` on the
-same table. `Entity::client()` and `Entity::name()` remain available for SDK operations outside the typed surface.
+Generic operations pass through `Deref`; your invariants stay yours. For item shapes the derive cannot express,
+implement `Schema` by hand and give that shape its own `Entity` on the same table. `Entity::client()` and `Entity::name()` remain available for SDK operations outside the typed surface.
 
 ## Feature flags
 
