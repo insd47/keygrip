@@ -136,7 +136,7 @@ executions
 
 ## Writing
 
-Writes are values. `put`, `update`, `merge`, and `delete` return a `Put`, `Update`, or `Delete` that runs when
+Writes are values. `put`, `update`, `merge`, and `delete` return a `Put`, `Update`, `Merge`, or `Delete` that runs when
 awaited:
 
 ```rust
@@ -160,8 +160,9 @@ and any `Expression` converts into one.
 
 - `Expression` binds values through serde, so anything a model stores binds directly: strings, numbers, enums, lists,
   nested structs. An update and its condition must use distinct placeholders.
-- `Update::fetch` applies the update and returns the stored item (`ALL_NEW`), or `None` when the condition is rejected.
-- `merge` builds an `Update` that sets every serialized non-key field of a value, and `keep` preserves selected fields
+- `Update::fetch` and `Merge::fetch` apply the write and return the stored item (`ALL_NEW`), or `None` when the condition
+  is rejected.
+- `merge` builds a `Merge` that sets every serialized non-key field of a value, and `keep` preserves selected fields
   already stored (`if_not_exists`). Unlike `put`, it does not remove attributes absent from the new value; use it only
   when every write preserves the same field set.
 

@@ -10,8 +10,7 @@ use std::future::{Future, IntoFuture};
 
 /// An in-place update of the item at one key.
 ///
-/// Built by [`Entity::update`] from an [`Expression`], or by
-/// [`Entity::merge`] from a whole value. Awaiting it resolves to `true` when
+/// Built by [`Entity::update`] from an [`Expression`]. Awaiting it resolves to `true` when
 /// the update applied and `false` when its [`Condition`] was rejected;
 /// [`fetch`](Self::fetch) returns the stored item instead:
 ///
@@ -44,7 +43,6 @@ pub struct Update<'a, E: Schema> {
     key: HashMap<String, AttributeValue>,
     body: Body<'a, E>,
     condition: Slot,
-    problem: Option<String>,
 }
 
 enum Body<'a, E> {
@@ -87,23 +85,14 @@ impl<'a, E: Schema> Update<'a, E> {
             key,
             body,
             condition: Slot::default(),
-            problem: None,
         }
     }
 
-    /// Writes `attribute` only when the stored item does not already have it
-    /// (`if_not_exists`).
-    ///
-    /// Applies to [`merge`](Entity::merge) updates only; on an expression
-    /// update, or with an attribute the value does not serialize, it fails
-    /// with [`Error::Invalid`](crate::Error::Invalid) when the write runs.
-    pub fn keep(mut self, attribute: impl Into<String>) -> Self {
-        match &mut self.body {
-            Body::Merge { keep, .. } => keep.push(attribute.into()),
-            Body::Expression(_) => {
-                self.problem
-                    .get_or_insert_with(|| "keep applies only to a merge".into());
-            }
+    /// Adds `attribute` to a merge body's `if_not_exists` set; built only by
+    /// [`Merge::keep`](crate::Merge::keep).
+    pub(crate) fn keep(mut self, attribute: String) -> Self {
+        if let Body::Merge { keep, .. } = &mut self.body {
+            keep.push(attribute);
         }
 
         self
@@ -142,10 +131,6 @@ impl<'a, E: Schema> Update<'a, E> {
     }
 
     fn compile(self) -> Result<Compiled> {
-        if let Some(problem) = self.problem {
-            return Err(invalid(problem));
-        }
-
         let condition = self.condition.resolve::<E>()?;
         let update = match self.body {
             Body::Expression(expression) => expression.compile()?,
@@ -273,8 +258,8 @@ impl<E: Schema> From<Update<'_, E>> for Step {
 #[cfg(test)]
 mod tests {
     use super::Update;
+    use crate::Entity;
     use crate::Expression;
-    use crate::{Entity, Error};
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::types::{AttributeValue, ReturnValue};
     use aws_sdk_dynamodb::{Client, Config};
@@ -388,18 +373,10 @@ mod tests {
     }
 
     #[test]
-    fn rejects_keep_on_expression_updates() {
-        let records = entity();
-        let error = update(&records).keep("active").compile().err().unwrap();
-
-        assert!(matches!(error, Error::Invalid(detail) if detail.contains("only to a merge")));
-    }
-
-    #[test]
     fn composes_sorted_merge_assignments() {
         let submissions = submission_entity();
         let submission = submission();
-        let request = submissions.merge(&submission).request().unwrap();
+        let request = Update::merge(&submissions, &submission).request().unwrap();
         let input = request.as_input();
         let update = input.get_update_expression().as_deref();
         let names = input.get_expression_attribute_names().as_ref().unwrap();
@@ -415,10 +392,9 @@ mod tests {
     fn keeps_selected_merge_attributes_when_already_present() {
         let submissions = submission_entity();
         let submission = submission();
-        let request = submissions
-            .merge(&submission)
-            .keep("id")
-            .keep("createdAt")
+        let request = Update::merge(&submissions, &submission)
+            .keep("id".into())
+            .keep("createdAt".into())
             .request()
             .unwrap();
         let update = request.as_input().get_update_expression().as_deref();
@@ -433,7 +409,7 @@ mod tests {
     fn excludes_primary_key_attributes_from_merge_updates() {
         let submissions = submission_entity();
         let submission = submission();
-        let request = submissions.merge(&submission).request().unwrap();
+        let request = Update::merge(&submissions, &submission).request().unwrap();
         let input = request.as_input();
         let key = input.get_key().as_ref().unwrap();
         let names = input.get_expression_attribute_names().as_ref().unwrap();
@@ -447,7 +423,7 @@ mod tests {
     fn aliases_reserved_merge_attribute_names() {
         let submissions = submission_entity();
         let submission = submission();
-        let request = submissions.merge(&submission).request().unwrap();
+        let request = Update::merge(&submissions, &submission).request().unwrap();
         let input = request.as_input();
         let update = input.get_update_expression().as_deref().unwrap();
         let names = input.get_expression_attribute_names().as_ref().unwrap();
@@ -460,8 +436,7 @@ mod tests {
     async fn rejects_a_second_merge_condition_at_run_time() {
         let submissions = submission_entity();
         let submission = submission();
-        let error = submissions
-            .merge(&submission)
+        let error = Update::merge(&submissions, &submission)
             .when(Expression::new("attribute_exists(userId)"))
             .when(Expression::new("attribute_exists(problemId)"))
             .run()
@@ -475,8 +450,7 @@ mod tests {
     async fn rejects_merge_condition_placeholder_collisions_at_run_time() {
         let submissions = submission_entity();
         let submission = submission();
-        let error = submissions
-            .merge(&submission)
+        let error = Update::merge(&submissions, &submission)
             .when(Expression::new("#m0 = :expected").name("#m0", "createdAt"))
             .run()
             .await
@@ -489,7 +463,11 @@ mod tests {
     fn rejects_unknown_merge_keep_attributes() {
         let submissions = submission_entity();
         let submission = submission();
-        let error = submissions.merge(&submission).keep("missing").request().err().unwrap();
+        let error = Update::merge(&submissions, &submission)
+            .keep("missing".into())
+            .request()
+            .err()
+            .unwrap();
 
         assert!(error.to_string().contains("unknown merge keep attribute"));
     }
@@ -498,7 +476,7 @@ mod tests {
     fn rejects_merges_without_non_key_attributes() {
         let keys = key_only_entity();
         let key = KeyOnlyTable { id: "key".into() };
-        let error = keys.merge(&key).request().err().unwrap();
+        let error = Update::merge(&keys, &key).request().err().unwrap();
 
         assert!(error.to_string().contains("at least one attribute"));
     }
@@ -507,7 +485,7 @@ mod tests {
     fn fetch_requests_all_new_attributes() {
         let submissions = submission_entity();
         let submission = submission();
-        let request = submissions.merge(&submission).fetch_request().unwrap();
+        let request = Update::merge(&submissions, &submission).fetch_request().unwrap();
         let input = request.as_input();
 
         assert_eq!(input.get_return_values().as_ref(), Some(&ReturnValue::AllNew));
