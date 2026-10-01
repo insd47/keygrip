@@ -1,4 +1,3 @@
-use crate::types::Sort;
 use crate::{item, request, Cursor, Entity, Error, Index, KeyPart, Page, Result, Schema, SortSpace};
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
@@ -18,18 +17,18 @@ pub struct Query<'e, E: Schema> {
     consistent: bool,
 }
 
-pub fn new<E: Schema>(entity: &Entity<E>, partition: String) -> Query<'_, E> {
-    Query {
-        entity,
-        partition,
-        index: None,
-        sort: None,
-        newest: false,
-        consistent: false,
+impl<'e, E: Schema> Query<'e, E> {
+    pub(crate) fn new(entity: &'e Entity<E>, partition: String) -> Self {
+        Self {
+            entity,
+            partition,
+            index: None,
+            sort: None,
+            newest: false,
+            consistent: false,
+        }
     }
-}
 
-impl<E: Schema> Query<'_, E> {
     /// Targets a global secondary index declared on the entity
     /// (`#[entity(index(…))]`) instead of the primary key.
     pub fn index(mut self, index: &'static Index) -> Self {
@@ -150,16 +149,23 @@ impl<E: Schema> Query<'_, E> {
     }
 }
 
+/// Sort-key constraint of a [`Query`].
+pub enum Sort {
+    Prefix(String),
+    Equal(String),
+    After(String),
+}
+
 /// A sort-key condition over `#sort`, combining the schema's
 /// [`SortSpace`] with the query's own constraint.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct SortCondition {
-    pub(crate) expression: String,
-    pub(crate) values: Vec<(&'static str, String)>,
+pub struct SortCondition {
+    pub expression: String,
+    pub values: Vec<(&'static str, String)>,
 }
 
 impl SortCondition {
-    pub(crate) fn new(space: Option<SortSpace>, sort: Option<&Sort>) -> Result<Option<Self>> {
+    pub fn new(space: Option<SortSpace>, sort: Option<&Sort>) -> Result<Option<Self>> {
         let condition = match (space, sort) {
             (None, None) => return Ok(None),
             (None, Some(Sort::Prefix(prefix))) => Self::begins_with(prefix.clone()),
@@ -212,8 +218,7 @@ impl SortCondition {
 
 #[cfg(test)]
 mod tests {
-    use super::SortCondition;
-    use crate::types::Sort;
+    use super::{Sort, SortCondition};
     use crate::{Entity, Error, Index, SortSpace};
     use aws_sdk_dynamodb::config::BehaviorVersion;
     use aws_sdk_dynamodb::{Client, Config};
