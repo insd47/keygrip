@@ -207,6 +207,7 @@ reused freely by different steps.
 - `Unavailable`: DynamoDB could not be reached or rejected the request transiently. It may succeed on retry.
 
 Rejected conditions are never errors. Wrap `Error` in your own error type via `From` and add domain variants there.
+`Error` is `#[non_exhaustive]`, so a `match` on it needs a wildcard arm.
 
 ## Domain operations
 

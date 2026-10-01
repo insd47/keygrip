@@ -1,8 +1,10 @@
 /// Failure modes of DynamoDB operations, neutral to any application.
 ///
 /// Applications typically wrap this in their own error type via `From` and
-/// add domain-specific variants there.
+/// add domain-specific variants there. New variants may be added in minor
+/// releases, so a `match` needs a wildcard arm.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     /// The requested item does not exist.
     #[error("{0}")]
@@ -19,4 +21,4 @@ pub enum Error {
 }
 
 /// Convenience alias for results produced by this crate.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
