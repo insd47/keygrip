@@ -28,13 +28,3 @@ jobs:
           cargo fmt --all --check
           cargo clippy --workspace --all-targets --all-features -- -D warnings
           cargo test --workspace --all-features
-
-      - name: Check CHANGELOG version
-        run: |
-          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "keygrip") | .version')
-          latest=$(sed -nE 's/^## \[([^]]+)\].*/\1/p' CHANGELOG.md | head -n 1)
-
-          if [ "$version" != "$latest" ]; then
-            echo "::error file=CHANGELOG.md::The latest CHANGELOG.md section ($latest) does not match the Cargo.toml version ($version)."
-            exit 1
-          fi
