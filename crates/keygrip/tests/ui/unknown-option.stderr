@@ -1,0 +1,5 @@
+error: expected name, pk(...), sk(...), or index(...)
+ --> tests/ui/unknown-option.rs:5:18
+  |
+5 | #[entity(pk(id), table = "Records")]
+  |                  ^^^^^

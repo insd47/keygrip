@@ -1,0 +1,5 @@
+error: string literals must lead sk(...)
+ --> tests/ui/literal-after-field.rs:5:30
+  |
+5 | #[entity(pk(user_id), sk(id, "run"))]
+  |                              ^^^^^

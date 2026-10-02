@@ -1,0 +1,5 @@
+error: sort key literals must be non-empty ASCII letters, digits, '_' or '-'
+ --> tests/ui/invalid-literal.rs:5:26
+  |
+5 | #[entity(pk(user_id), sk("ru#n", id))]
+  |                          ^^^^^^

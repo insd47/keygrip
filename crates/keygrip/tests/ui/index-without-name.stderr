@@ -1,0 +1,5 @@
+error: index requires name = "..."
+ --> tests/ui/index-without-name.rs:5:18
+  |
+5 | #[entity(pk(id), index(pk(name)))]
+  |                  ^^^^^^^^^^^^^^^
