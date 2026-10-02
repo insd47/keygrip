@@ -1,5 +1,3 @@
-#![cfg(feature = "dynamodb")]
-
 mod common;
 
 use common::{client, error, ok};

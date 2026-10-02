@@ -240,12 +240,6 @@ impl Users {
 Generic operations pass through `Deref`; your invariants stay yours. For item shapes the derive cannot express,
 implement `Schema` by hand and give that shape its own `Entity` on the same table. `Entity::client()` and `Entity::name()` remain available for SDK operations outside the typed surface.
 
-## Feature flags
-
-- `dynamodb` *(default)*: the AWS SDK-backed entity, query, writes, and transactions.
-- With `default-features = false`, only the schema vocabulary and the derive macro remain. Use this from model-only
-  crates (DTO layers, Lambdas that must not compile the AWS SDK) that still need to name your table types.
-
 ## Versioning
 
 keygrip follows semantic versioning; before 1.0, breaking changes bump the minor version. It tracks the latest
