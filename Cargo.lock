@@ -1125,6 +1125,7 @@ version = "0.5.0"
 dependencies = [
  "aws-sdk-dynamodb",
  "aws-smithy-http-client",
+ "aws-smithy-types",
  "http 1.4.2",
  "keygrip-derive",
  "serde",

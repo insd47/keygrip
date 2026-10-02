@@ -30,6 +30,7 @@ thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
 aws-smithy-http-client.workspace = true
+aws-smithy-types.workspace = true
 http.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
