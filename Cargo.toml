@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["insd47"]
 license = "MIT"
 repository = "https://github.com/insd47/keygrip"
 
 [workspace.dependencies]
-keygrip-derive = { version = "=0.5.0", path = "crates/keygrip-derive" }
+keygrip-derive = { version = "=0.5.1", path = "crates/keygrip-derive" }
 
 aws-sdk-dynamodb = "1"
 aws-smithy-http-client = { version = "1", features = ["test-util"] }

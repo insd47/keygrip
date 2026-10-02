@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "keygrip"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "aws-sdk-dynamodb",
  "aws-smithy-http-client",
@@ -1144,7 +1144,7 @@ dependencies = [
 
 [[package]]
 name = "keygrip-derive"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "heck",
  "proc-macro2",
