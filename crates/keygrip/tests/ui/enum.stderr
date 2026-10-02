@@ -1,0 +1,5 @@
+error: Schema can only be derived for structs
+ --> tests/ui/enum.rs:5:1
+  |
+5 | #[entity(pk(id))]
+  | ^

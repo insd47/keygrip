@@ -1,0 +1,5 @@
+error: key fields cannot be empty
+ --> tests/ui/empty-pk.rs:5:10
+  |
+5 | #[entity(pk())]
+  |          ^^^^

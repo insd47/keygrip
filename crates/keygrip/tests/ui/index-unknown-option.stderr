@@ -1,0 +1,5 @@
+error: expected name, pk(...), or sk(...)
+ --> tests/ui/index-unknown-option.rs:5:51
+  |
+5 | #[entity(pk(id), index(name = "byName", pk(name), projection = "all"))]
+  |                                                   ^^^^^^^^^^

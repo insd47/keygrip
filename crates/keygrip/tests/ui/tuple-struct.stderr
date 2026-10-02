@@ -1,0 +1,5 @@
+error: Schema requires named fields
+ --> tests/ui/tuple-struct.rs:5:1
+  |
+5 | #[entity(pk(id))]
+  | ^

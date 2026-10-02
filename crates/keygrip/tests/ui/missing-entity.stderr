@@ -1,0 +1,5 @@
+error: Schema requires one #[entity(...)] attribute
+ --> tests/ui/missing-entity.rs:5:1
+  |
+5 | struct Record {
+  | ^^^^^^

@@ -1,0 +1,7 @@
+error[E0609]: no field `user_id` on type `&Record`
+ --> tests/ui/unknown-field.rs:5:13
+  |
+5 | #[entity(pk(user_id))]
+  |             ^^^^^^^ unknown field
+  |
+  = note: available field is: `id`
