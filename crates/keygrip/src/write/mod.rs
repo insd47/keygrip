@@ -40,14 +40,14 @@ struct Clause {
     values: Option<HashMap<String, AttributeValue>>,
 }
 
-/// Merges an optional update expression with an optional condition,
-/// rejecting placeholders bound by both.
+/// Merges an optional update expression with an optional condition. A
+/// placeholder may appear in both when it is bound to the same target.
 fn clause(update: Option<Bindings>, condition: Option<Expression>) -> Result<(Option<String>, Clause)> {
     let condition = condition.map(Expression::compile).transpose()?;
 
     if let (Some(update), Some(condition)) = (&update, &condition) {
-        if let Some(collision) = update.collision(condition) {
-            return Err(invalid(collision));
+        if let Some(conflict) = update.conflict(condition) {
+            return Err(invalid(conflict));
         }
     }
 
