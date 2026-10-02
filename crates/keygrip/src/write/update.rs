@@ -36,7 +36,9 @@ use std::future::{Future, IntoFuture};
 /// }
 /// ```
 ///
-/// An update expression and its condition must bind distinct placeholders.
+/// An update expression and its condition may share a placeholder bound to
+/// the same target; binding it to different targets fails with
+/// [`Error::Invalid`](crate::Error::Invalid) when the write runs.
 #[must_use = "a write does nothing until it is awaited"]
 pub struct Update<'a, E: Schema> {
     entity: &'a Entity<E>,
@@ -344,8 +346,36 @@ mod tests {
         assert!(error.to_string().contains("more than one condition"));
     }
 
+    #[test]
+    fn shares_placeholders_bound_to_the_same_target() {
+        let records = entity();
+        let request = records
+            .update(
+                ("contest", "user", "submission", "one"),
+                Expression::new("SET score = :score, #best = :best")
+                    .name("#best", "best")
+                    .value(":score", &10)
+                    .value(":best", "submission"),
+            )
+            .when(
+                Expression::new("attribute_not_exists(#best) OR score < :score")
+                    .name("#best", "best")
+                    .value(":score", &10),
+            )
+            .request()
+            .unwrap();
+        let input = request.as_input();
+        let names = input.get_expression_attribute_names().as_ref().unwrap();
+        let values = input.get_expression_attribute_values().as_ref().unwrap();
+
+        assert_eq!(names.len(), 1);
+        assert_eq!(names["#best"], "best");
+        assert_eq!(values.len(), 2);
+        assert_eq!(values[":score"].as_n().unwrap(), "10");
+    }
+
     #[tokio::test]
-    async fn rejects_update_condition_placeholder_collisions_at_run_time() {
+    async fn rejects_placeholders_bound_to_different_targets() {
         let records = entity();
         let error = records
             .update(
@@ -359,7 +389,9 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert!(error.to_string().contains("placeholder"));
+        assert!(error
+            .to_string()
+            .contains(r#"#state is bound to "state" by the update and to "previous" by the condition"#));
     }
 
     #[test]
@@ -447,16 +479,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_merge_condition_placeholder_collisions_at_run_time() {
+    async fn rejects_merge_placeholders_bound_to_different_targets() {
         let submissions = submission_entity();
         let submission = submission();
         let error = Update::merge(&submissions, &submission)
-            .when(Expression::new("#m0 = :expected").name("#m0", "createdAt"))
+            .when(Expression::new("#m0 = :expected").name("#m0", "id"))
             .run()
             .await
             .unwrap_err();
 
-        assert!(error.to_string().contains("placeholder"));
+        assert!(error
+            .to_string()
+            .contains(r#"#m0 is bound to "createdAt" by the update and to "id" by the condition"#));
     }
 
     #[test]

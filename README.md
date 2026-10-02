@@ -159,7 +159,7 @@ and any `Expression` converts into one.
 > ignores the rejection. An unconditional write always resolves to `true`.
 
 - `Expression` binds values through serde, so anything a model stores binds directly: strings, numbers, enums, lists,
-  nested structs. An update and its condition must use distinct placeholders.
+  nested structs. An update and its condition may share a placeholder bound to the same target.
 - `Update::fetch` and `Merge::fetch` apply the write and return the stored item (`ALL_NEW`), or `None` when the condition
   is rejected.
 - `merge` builds a `Merge` that sets every serialized non-key field of a value, and `keep` preserves selected fields
