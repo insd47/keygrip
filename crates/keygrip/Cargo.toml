@@ -29,6 +29,9 @@ serde_dynamo = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
+aws-smithy-http-client.workspace = true
+http.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 
 [package.metadata.docs.rs]
