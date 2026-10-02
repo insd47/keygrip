@@ -13,11 +13,14 @@ repository = "https://github.com/insd47/keygrip"
 keygrip-derive = { version = "=0.5.0", path = "crates/keygrip-derive" }
 
 aws-sdk-dynamodb = "1"
+aws-smithy-http-client = { version = "1", features = ["test-util"] }
 heck = "0.5"
+http = "1"
 proc-macro2 = "1"
 quote = "1"
 serde = { version = "1", features = ["derive"] }
 serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
+serde_json = "1"
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
