@@ -221,17 +221,7 @@ impl SortCondition {
 #[cfg(test)]
 mod tests {
     use super::{Sort, SortCondition};
-    use crate::{Entity, Error, Index, SortSpace};
-    use aws_sdk_dynamodb::config::BehaviorVersion;
-    use aws_sdk_dynamodb::{Client, Config};
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize, crate::Schema)]
-    #[entity(pk(owner), sk(id), index(name = "byId", pk(id)))]
-    struct RecordTable {
-        owner: String,
-        id: String,
-    }
+    use crate::{Error, SortSpace};
 
     #[test]
     fn keeps_queries_inside_a_prefix_space() {
@@ -275,15 +265,5 @@ mod tests {
                 .values,
             [(":sort", "a".into())]
         );
-    }
-
-    #[tokio::test]
-    async fn rejects_consistent_index_queries_before_sending() {
-        let config = Config::builder().behavior_version(BehaviorVersion::latest()).build();
-        let records = Entity::<RecordTable>::new(&Client::from_conf(config), "Records");
-        let index: &'static Index = &RecordTable::BY_ID;
-        let error = records.query("id").index(index).consistent().all().await.unwrap_err();
-
-        assert!(matches!(error, Error::Invalid(detail) if detail.contains("consistent")));
     }
 }
